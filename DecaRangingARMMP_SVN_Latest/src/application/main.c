@@ -29,7 +29,7 @@ extern void send_usbmessage(uint8*, int);
 //#define SOFTWARE_VER_STRING    "TAG Original" //
 #define SOFTWARE_VER_STRING    "(TAG)Anchor3" //
 
-
+int instance_tagaddr = 2; //0 = 0xDECA010000000001; 1 = 0xDECA010000000002; 2 = 0xDECA010000000003 3 = 0xDECA010000000004 4 = 0xDECA010000000005
 int instance_anchaddr = 2; //0 = 0xDECA020000000001; 1 = 0xDECA020000000002; 2 = 0xDECA020000000003
 int dr_mode = 0;
 //if instance_mode = TAG_TDOA then the device cannot be selected as anchor

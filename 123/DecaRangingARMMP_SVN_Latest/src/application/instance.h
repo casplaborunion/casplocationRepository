@@ -86,6 +86,7 @@ extern "C" {
 //Fast 2WR function codes
 #define RTLS_DEMO_MSG_RNG_INIT              (0x20)          // Ranging initiation message
 #define RTLS_DEMO_MSG_TAG_POLL              (0x21)          // Tag poll message
+#define RTLS_DEMO_MSG_TAG_POLL2             (0x22)          // Anchor poll message				//2015.01.15 JSH
 #define RTLS_DEMO_MSG_ANCH_RESP             (0x10)          // Anchor response to poll
 #define RTLS_DEMO_MSG_TAG_FINAL             (0x29)          // Tag final massage back to Anchor (0x29 because of 5 byte timestamps needed for PC app)
 #define RTLS_DEMO_MSG_ANCH_TOFR             (0x2A)          // Anchor TOF Report message
@@ -105,6 +106,7 @@ extern "C" {
 
 //lengths including the Decaranging Message Function Code byte
 #define TAG_POLL_MSG_LEN                    3				// FunctionCode(1), Temp (1), Volt (1)
+#define ANCHOR_POLL_MSG_LEN                 3				// FunctionCode(1), Temp (1), Volt (1)			//2015.01.15 JSH
 #define ANCH_RESPONSE_MSG_LEN               4               // FunctionCode(1), RespOption (1), OptionParam(2)
 #define TAG_FINAL_MSG_LEN                   16              // FunctionCode(1), Poll_TxTime(5), Resp_RxTime(5), Final_TxTime(5)
 #define TOF_REPORT_MSG_LEN                  6               // FunctionCode(1), Measured_TOF_Time(5)
@@ -144,7 +146,7 @@ extern "C" {
 #define BLINK_FRAME_CRTL_AND_ADDRESS    (BLINK_FRAME_SOURCE_ADDRESS + BLINK_FRAME_CTRLP) //10 bytes
 
 #define ANCHOR_LIST_SIZE			(3)
-#define TAG_LIST_SIZE				(1)	//anchor will range with 1st Tag it gets blink from
+#define TAG_LIST_SIZE				(5)	//anchor will range with 1st Tag it gets blink from
 
 #define SEND_TOF_REPORT				(1)	//use this to set sendTOFR2Tag parameter if the anchor sends the report back to the tag
 #define NO_TOF_REPORT				(0)
@@ -229,7 +231,10 @@ typedef enum inst_states
 
     TA_SLEEP_DONE,              //9
     TA_TXBLINK_WAIT_SEND,       //10
-    TA_TXRANGINGINIT_WAIT_SEND  //11
+    TA_TXRANGINGINIT_WAIT_SEND,  //11
+
+    TA_TXPOLL_WAIT_SEND2,		//12	//2015.01.15 JSH
+    TA_TX_WAIT_CONF2           //13	//2015.01.15 JSH
 } INST_STATES;
 
 
@@ -328,8 +333,12 @@ typedef struct
 	uint64 forwardToFRAddress;
     uint64 anchorAddress;
 	uint64 *anchorAddressList;
+    uint64 tagAddress;			//2015.01.15 JSH
+	uint64 *tagAddressList;		//2015.01.15 JSH
 	int anchorListSize ;
 	int anchorPollMask ;
+	int tagListSize ; 			//2015.01.15 JSH
+	int tagPollMask ; 			//2015.01.15 JSH
 	int sendReport ;
 } instanceAddressConfig_t ;
 #endif
@@ -482,6 +491,7 @@ typedef struct
 	}txu;
 	uint64 anchorRespRxTime ;	    // receive time of response message
 	uint64 tagPollRxTime ;          // receive time of poll message
+	uint64 anchorPollRxTime ;          // receive time of anchor poll message			//2015.01.15 JSH
 
 	//32 bit timestamps (when "fast" ranging is used)
 	uint32 tagPollTxTime32l ;      // poll tx time - low 32 bits
@@ -547,6 +557,7 @@ typedef struct
 	uint8 tagToRangeWith;	//it is the index of the tagList array which contains the address of the Tag we are ranging with
     uint8 tagListLen ;
     uint8 anchorListIndex ;
+    uint8 tagListIndex ; //2015.01.15 JSH
 	uint8 tagList[TAG_LIST_SIZE][8];
 
 

@@ -623,7 +623,13 @@ void inst_processrxtimeout(instance_data_t *inst)
 
     if(inst->mode == ANCHOR) //we did not receive the final - wait for next poll
     {
-		if((inst->newReportSent) && (inst->newReportSent < MAX_NUMBER_OF_REPORT_RETRYS)) //no ACK send another report
+    	////////////////////////////////////////////
+    	if(inst->previousState !=  TA_TX_WAIT_CONF)
+    	{
+    		inst->testAppState = TA_TXPOLL_WAIT_SEND;
+    	}
+    	//////////////////////////////////////////// 2015.01.15 JSH
+    	if((inst->newReportSent) && (inst->newReportSent < MAX_NUMBER_OF_REPORT_RETRYS)) //no ACK send another report
 		{
 			inst->testAppState = TA_TXREPORT_WAIT_SEND ;
 			//printf("Timeout while waiting for ACK -> send next report\n");

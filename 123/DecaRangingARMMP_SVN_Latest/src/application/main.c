@@ -26,15 +26,16 @@ extern void usb_printconfig(void);
 extern void send_usbmessage(uint8*, int);
 
 //#define SOFTWARE_VER_STRING    "Version 2.25 DG" //
-#define SOFTWARE_VER_STRING    "TAG Original1" //
-//#define SOFTWARE_VER_STRING    "(TAG)Anchor3" //
+//#define SOFTWARE_VER_STRING    "TAG Original1" //
+#define SOFTWARE_VER_STRING    "(TAG)Anchor1" //
 
 
-int instance_anchaddr = 2; //0 = 0xDECA020000000001; 1 = 0xDECA020000000002; 2 = 0xDECA020000000003
+int instance_tagaddr = 0; //0 = 0xDECA010000000001; 1 = 0xDECA010000000002; 2 = 0xDECA010000000003; 3 = 0xDECA010000000004; 4 = 0xDECA010000000005
+int instance_anchaddr = 0; //0 = 0xDECA020000000001; 1 = 0xDECA020000000002; 2 = 0xDECA020000000003
 int dr_mode = 0;
 //if instance_mode = TAG_TDOA then the device cannot be selected as anchor
-//int instance_mode = ANCHOR;
-int instance_mode = TAG;
+int instance_mode = ANCHOR;
+//int instance_mode = TAG;
 //int instance_mode = TAG_TDOA;
 //int instance_mode = LISTENER;
 int paused = 0;
@@ -152,12 +153,14 @@ chConfig_t chConfig[8] ={
 
 #if (DR_DISCOVERY == 0)
 //Tag address list
-uint64 tagAddressList[3] =
+uint64 tagAddressList[TAG_LIST_SIZE] =
 {
      0xDECA010000000001,         // First tag
      0xDECA010000000002,         // Second tag
-     0xDECA010000000003          // Third tag
-} ;
+     0xDECA010000000003,         // Third tag
+     0xDECA010000000004,         // Third tag
+     0xDECA010000000005          // Third tag
+} ;	//2015.01.15 JSH
 
 //Anchor address list
 uint64 anchorAddressList[ANCHOR_LIST_SIZE] =
@@ -186,9 +189,11 @@ void addressconfigure(void)
     ipc.forwardToFRAddress = forwardingAddress[0];
     ipc.anchorAddress = anchorAddressList[instance_anchaddr];
     ipc.anchorAddressList = anchorAddressList;
+    ipc.tagAddress = anchorAddressList[instance_tagaddr];	// 2015.01.15 JSH
+    ipc.tagAddressList = anchorAddressList;					// 2015.01.15 JSH
     ipc.anchorListSize = ANCHOR_LIST_SIZE ;
-    //ipc.anchorPollMask = 0x1;               // anchor poll mask
-    ipc.anchorPollMask = 0xF;               // tag poll mask
+    ipc.anchorPollMask = 0xF;								// tag poll mask	00001111
+    ipc.tagPollMask = 0xFF;									// anchor poll mask	11111111	2015.01.15 JSH
 
     ipc.sendReport = 1 ;  //1 => anchor sends TOF report to tag
     //ipc.sendReport = 2 ;  //2 => anchor sends TOF report to listener

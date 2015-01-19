@@ -27,14 +27,14 @@ extern void send_usbmessage(uint8*, int);
 
 //#define SOFTWARE_VER_STRING    "Version 2.25 DG" //
 //#define SOFTWARE_VER_STRING    "TAG Original" //
-#define SOFTWARE_VER_STRING    "(TAG)Anchor3" //
+#define SOFTWARE_VER_STRING    "Master Anchor" //
 
 int instance_tagaddr = 0; //0 = 0xDECA010000000001; 1 = 0xDECA010000000002; 2 = 0xDECA010000000003 3 = 0xDECA010000000004 4 = 0xDECA010000000005
 /*
  * tag address index. initial value is 0.
  * 2015.01.17 JB
  */
-int instance_anchaddr = 2; //0 = 0xDECA020000000001; 1 = 0xDECA020000000002; 2 = 0xDECA020000000003
+int instance_anchaddr = 0; //0 = 0xDECA020000000001; 1 = 0xDECA020000000002; 2 = 0xDECA020000000003
 int dr_mode = 0;
 //if instance_mode = TAG_TDOA then the device cannot be selected as anchor
 int instance_mode = ANCHOR;

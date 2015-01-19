@@ -862,11 +862,12 @@ int testapprun_s(instance_data_t *inst, int message) {
 		} else if (inst->gotTO) //timeout
 		{
 			//printf("got TO in TA_TX_WAIT_CONF\n");
-			inst_processrxtimeout(inst);
+			inst->testAppState = TA_TXCALL_WAIT_SEND;
 			inst->gotTO = 0;
 			inst->wait4ack = 0; //clear this
 			break;
 		}
+		break;
 
 	}
 

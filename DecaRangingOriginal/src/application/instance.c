@@ -822,7 +822,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 			//fall into the next case (turn on the RX)
 			message = 0;
 		}
-
+		break ; // end case TA_TX_WAIT_CONF
 	}
 
 	case TA_TX_CALL_WAIT_CONF:
@@ -876,7 +876,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 		 * 2015.01.19 JB
 		 */
 
-		//break ; // end case TA_TX_WAIT_CONF
+
 	case TA_RXE_WAIT:
 		// printf("TA_RXE_WAIT") ;
 	{

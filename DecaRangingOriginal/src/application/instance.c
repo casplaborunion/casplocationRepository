@@ -1167,7 +1167,7 @@ int testapprun_s(instance_data_t *inst, int message)
 
 
 ///////////REN 01.17/////////////////////////////////////////////////////////////
-                            case RTLS_DEMO_MSG_TAG_POLL2:
+                            case RTLS_DEMO_MSG_ANCHOR_CALL:
                             {
 
                             	memcpy(&srcAddr[0], &inst->payload.tagAddress, ADDR_BYTE_SIZE_L);//////////////////////////////////////ren 01.19

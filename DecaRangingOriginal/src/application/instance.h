@@ -89,7 +89,7 @@ extern "C" {
 #define RTLS_DEMO_MSG_ANCH_RESP             (0x10)          // Anchor response to poll
 #define RTLS_DEMO_MSG_TAG_FINAL             (0x29)          // Tag final massage back to Anchor (0x29 because of 5 byte timestamps needed for PC app)
 #define RTLS_DEMO_MSG_ANCH_TOFR             (0x2A)          // Anchor TOF Report message
-#define RTLS_DEMO_MSG_TAG_POLL2              (0x22)          // Tag poll2 message /////////////////////jsh
+#define RTLS_DEMO_MSG_ANCHOR_CALL           (0x22)          // Tag poll2 message /////////////////////jsh
 
 //#define RTLS_DEMO_MSG_RNG_INITF              (0x60)          // Ranging initiation message
 #define RTLS_DEMO_MSG_TAG_POLLF              (0x61)          // Tag poll message

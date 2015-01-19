@@ -25,20 +25,25 @@ extern int usb_init(void);
 extern void usb_printconfig(void);
 extern void send_usbmessage(uint8*, int);
 
-//#define SOFTWARE_VER_STRING    "Version 2.25 DG" //
-//#define SOFTWARE_VER_STRING    "TAG Original" //
-#define SOFTWARE_VER_STRING    "(TAG)Anchor3" //
+//#define SOFTWARE_VER_STRING    "TAG 1 (5A)" //   for demonstration  REN 2015.01.09
+//#define SOFTWARE_VER_STRING    "TAG 2 (2A)" //
+//#define SOFTWARE_VER_STRING    "TAG 3 (82)" //
+//#define SOFTWARE_VER_STRING    "TAG 4 (58)" //
+//#define SOFTWARE_VER_STRING    "TAG 5 (EE)" //
 
-int instance_tagaddr = 0; //0 = 0xDECA010000000001; 1 = 0xDECA010000000002; 2 = 0xDECA010000000003 3 = 0xDECA010000000004 4 = 0xDECA010000000005
-/*
- * tag address index. initial value is 0.
- * 2015.01.17 JB
- */
-int instance_anchaddr = 2; //0 = 0xDECA020000000001; 1 = 0xDECA020000000002; 2 = 0xDECA020000000003
+//#define SOFTWARE_VER_STRING    "TAG 1 (C8)" //   for test only  REN 2015.01.09
+//#define SOFTWARE_VER_STRING    "TAG 2 (17)" //
+//#define SOFTWARE_VER_STRING    "TAG 3 (C3)" //
+//#define SOFTWARE_VER_STRING    "TAG 4 (62)" //
+//#define SOFTWARE_VER_STRING    "TAG 5 (98)" //
+#define SOFTWARE_VER_STRING    "TAG 1 (2E)" //
+
+int instance_anchaddr = 0; //0 = 0xDECA020000000001; 1 = 0xDECA020000000002; 2 = 0xDECA020000000003
+int instance_tagaddr = 0; //0 = 0xDECA020000000001; 1 = 0xDECA020000000002; 2 = 0xDECA020000000003    ///////////////REN 01.17
 int dr_mode = 0;
 //if instance_mode = TAG_TDOA then the device cannot be selected as anchor
-int instance_mode = ANCHOR;
-//int instance_mode = TAG;
+//int instance_mode = ANCHOR;
+int instance_mode = TAG;
 //int instance_mode = TAG_TDOA;
 //int instance_mode = LISTENER;
 int paused = 0;
@@ -156,19 +161,14 @@ chConfig_t chConfig[8] ={
 
 #if (DR_DISCOVERY == 0)
 //Tag address list
-uint64 tagAddressList[5] =
+uint64 tagAddressList[TAG_LIST_SIZE] =
 {
-     0xDECA010000000001,         //  tag1
-     0xDECA010000000002,         //  tag2
-     0xDECA010000000003,         //  tag3
-     0xDECA010000000004,         //  tag4
-     0xDECA010000000005          //  tag5
+     0xDECA010000000001,         // First tag
+     0xDECA010000000002,         // Second tag
+     0xDECA010000000003,          // Third tag
+     0xDECA010000000004,          // Third tag         /////////////added by REN 01.17
+     0xDECA010000000005          // Third tag
 } ;
-/*
- * Anchor must know tag address.
- * this array will use for destination address in tag calling poll.
- * 2015.01.17 JB
- */
 
 //Anchor address list
 uint64 anchorAddressList[ANCHOR_LIST_SIZE] =
@@ -198,14 +198,20 @@ void addressconfigure(void)
     ipc.anchorAddress = anchorAddressList[instance_anchaddr];
     ipc.anchorAddressList = anchorAddressList;
     ipc.anchorListSize = ANCHOR_LIST_SIZE ;
-    ipc.anchorPollMask = 0x1;               // anchor poll mask
-//    ipc.anchorPollMask = 0x7;               // tag poll mask
+    ipc.anchorPollMask = 0x7; //0x7;              // anchor poll mask    ////REN 01.17
 
-    ipc.sendReport = 1 ;  //1 => anchor sends TOF report to tag
+    ipc.tagAddress = tagAddressList[instance_tagaddr];
+    ipc.tagAddressList = tagAddressList;
+    ipc.tagListSize = TAG_LIST_SIZE ;
+  //  ipc.tagPollMask = 0x7; //0x7;                //tag poll mask
+
+    ipc.sendReport = 1 ;  //1 => anchor sends TOF report to tag           1 -> 0  REN 01.17
     //ipc.sendReport = 2 ;  //2 => anchor sends TOF report to listener
 
     instancesetaddresses(&ipc);
 }
+
+
 #endif
 
 uint32 inittestapplication(void);
@@ -297,10 +303,10 @@ uint32 inittestapplication(void)
         led_on(LED_PC6);
 #else
         if(instance_anchaddr & 0x1)
-            led_on(LED_PC6);     // Tag
+            led_on(LED_PC6);
 
         if(instance_anchaddr & 0x2)
-            led_on(LED_PC8);    // Anchor
+            led_on(LED_PC8);
 #endif
     }
 
@@ -732,7 +738,7 @@ int main(void)
 					dataseq[0] = 0x2 ;  //return cursor home
 					writetoLCD( 1, 0,  dataseq);
 					if(toggle)
-					{
+		{
 						toggle = 0;
 						memcpy(&dataseq[0], (const uint8 *) "    AWAITING    ", 16);
 						writetoLCD( 40, 1, dataseq); //send some data

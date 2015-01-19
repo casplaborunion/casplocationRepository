@@ -24,7 +24,7 @@ extern "C" {
 /******************************************************************************************************************
 ********************* NOTES on DW (MP) features/options ***********************************************************
 *******************************************************************************************************************/
-#define DEEP_SLEEP (0) //To enable deep-sleep set this to 1
+#define DEEP_SLEEP (1) //To enable deep-sleep set this to 1
 //DEEP_SLEEP mode can be used, for example, by a Tag instance to put the DW1000 into low-power deep-sleep mode, there are two cases:
 // 1. when the Anchor is sending the range report back to the Tag, the Tag will enter sleep after a ranging exchange is finished
 // once it receives a report or times out, before the next poll message is sent (before next ranging exchange is started).
@@ -89,7 +89,7 @@ extern "C" {
 #define RTLS_DEMO_MSG_ANCH_RESP             (0x10)          // Anchor response to poll
 #define RTLS_DEMO_MSG_TAG_FINAL             (0x29)          // Tag final massage back to Anchor (0x29 because of 5 byte timestamps needed for PC app)
 #define RTLS_DEMO_MSG_ANCH_TOFR             (0x2A)          // Anchor TOF Report message
-#define RTLS_DEMO_MSG_ANCHOR_CALL           (0x22)          // Tag call message
+#define RTLS_DEMO_MSG_TAG_POLL2              (0x22)          // Tag poll2 message /////////////////////jsh
 
 //#define RTLS_DEMO_MSG_RNG_INITF              (0x60)          // Ranging initiation message
 #define RTLS_DEMO_MSG_TAG_POLLF              (0x61)          // Tag poll message
@@ -144,16 +144,14 @@ extern "C" {
 #define BLINK_FRAME_CTRLP				(BLINK_FRAME_CONTROL_BYTES + BLINK_FRAME_SEQ_NUM_BYTES) //2
 #define BLINK_FRAME_CRTL_AND_ADDRESS    (BLINK_FRAME_SOURCE_ADDRESS + BLINK_FRAME_CTRLP) //10 bytes
 
-#define ANCHOR_LIST_SIZE			(4)
-#define TAG_LIST_SIZE				(1)	//anchor will range with 1st Tag it gets blink from
+#define ANCHOR_LIST_SIZE			(3)
+#define TAG_LIST_SIZE				(5)	//anchor will range with 1st Tag it gets blink from       ////////////////////REN 01.17   1->5
 
 #define SEND_TOF_REPORT				(1)	//use this to set sendTOFR2Tag parameter if the anchor sends the report back to the tag
 #define NO_TOF_REPORT				(0)
 
 #define BLINK_SLEEP_DELAY					1000 //ms
-#define POLL_SLEEP_DELAY					150 //ms
-//#define BLINK_SLEEP_DELAY					1000 //ms
-//#define POLL_SLEEP_DELAY					500 //ms
+#define POLL_SLEEP_DELAY					1000 //ms
 
 //NOTE: only one transmission is allowed in 1ms when using smart tx power setting (applies for 6.81Mb data rate)
 //blink tx time ~ 180us with 128 preamble length
@@ -204,7 +202,7 @@ extern "C" {
 
 
 //response delay time (Tag or Anchor when sending Final/Response messages respectively)
-#define FIXED_REPLY_DELAY       			30
+#define FIXED_REPLY_DELAY       			20
 #define FIXED_LONG_BLINK_RESPONSE_DELAY       (5*FIXED_REPLY_DELAY) //NOTE: this should be a multiple of FIXED_LONG_REPLY_DELAY see DELAY_MULTIPLE below
 #define DELAY_MULTIPLE				(FIXED_LONG_BLINK_RESPONSE_DELAY/FIXED_LONG_REPLY_DELAY - 1)
 
@@ -231,10 +229,7 @@ typedef enum inst_states
     TA_SLEEP_DONE,              //9
     TA_TXBLINK_WAIT_SEND,       //10
     TA_TXRANGINGINIT_WAIT_SEND,  //11
-
-    TA_TXCALL_WAIT_SEND,        // 2015.01.17 JB
-    TA_TX_CALL_WAIT_CONF        // 2015.01.17 JB
-
+    TA_TXPOLL_WAIT_SEND2        //12 /////////////////////sh 01.16
 } INST_STATES;
 
 
@@ -333,13 +328,17 @@ typedef struct
 	uint64 forwardToFRAddress;
     uint64 anchorAddress;
 	uint64 *anchorAddressList;
-	uint64 tagAddress;
-	uint64 *tagAddressList;
 	int anchorListSize ;
-	int tagListSize ;
 	int anchorPollMask ;
 	int sendReport ;
+
+	uint64 tagAddress;       //////////REN 01.17
+	uint64 *tagAddressList;  //////////REN 01.17
+	int tagListSize ;        //////////REN 01.17
+	int tagPollMask ;        //////////REN 01.17
+
 } instanceAddressConfig_t ;
+
 #endif
 
 typedef struct
@@ -430,8 +429,11 @@ typedef struct
 
 #if (DR_DISCOVERY == 0)
 	//user payload and address structure for non-discovery mode
+
     instanceAddressConfig_t payload ;
-#endif
+
+
+    #endif
 
 	//timeouts and delays
 	int tagSleepTime_ms; //in milliseconds
@@ -555,10 +557,6 @@ typedef struct
 	uint8 tagToRangeWith;	//it is the index of the tagList array which contains the address of the Tag we are ranging with
     uint8 tagListLen ;
     uint8 anchorListIndex ;
-    uint8 tagListIndex ;
-    /*
-     * Anchor 1 have tag list index for calling tag
-     */
 	uint8 tagList[TAG_LIST_SIZE][8];
 
 

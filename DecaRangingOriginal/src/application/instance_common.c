@@ -652,11 +652,17 @@ void inst_processrxtimeout(instance_data_t *inst)
 		if(inst->mode == TAG)
 		{
 			inst->nextState = TA_TXPOLL_WAIT_SEND ;
+			///////////////////REN 14.12.30/////////////////////////////////////
+			//if(inst->previousState != TA_TX_WAIT_CONF  )
+			if(inst->anchorListIndex == 1 )//////////////////////////////////////////////////   added by REN 15.01.16
+				inst->anchorListIndex = 0; //////////////////////////////////////////////////   -=1 -> 0 REN 15.01.16
+			///////////////////////////////////////////////////////////////////////
 		}
 #if (DR_DISCOVERY == 1)
 		else //TAG_TDOA
 		{
 			inst->nextState = TA_TXBLINK_WAIT_SEND ;
+
 		}
 #endif
     }

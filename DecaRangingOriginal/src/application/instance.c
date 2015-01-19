@@ -21,12 +21,10 @@
 // -------------------------------------------------------------------------------------------------------------------
 
 //application data message byte offsets
-#define FCODE                               0               // Function code is 1st byte of messageData#define PTXT                                1
-#define RRXT                                6
+#define FCODE                               0               // Function code is 1st byte of messageData#define PTXT                                1#define RRXT                                6
 #define FTXT                                11
 #define TOFR                                1
-#define RES_R1                              1               // Response option octet 0x02 (1),#define RES_R2                              2               // Response option paramter 0x00 (1) - used to notify Tag that the report is coming#define RES_R3                              3               // Response option paramter 0x00 (1),#define RES_T1                              3               // Ranging request response delay low byte#define RES_T2                              4               // Ranging request response delay high byte#define POLL_TEMP                           1               // Poll message TEMP octet#define POLL_VOLT                           2               // Poll message Voltage octet
-// -------------------------------------------------------------------------------------------------------------------
+#define RES_R1                              1               // Response option octet 0x02 (1),#define RES_R2                              2               // Response option paramter 0x00 (1) - used to notify Tag that the report is coming#define RES_R3                              3               // Response option paramter 0x00 (1),#define RES_T1                              3               // Ranging request response delay low byte#define RES_T2                              4               // Ranging request response delay high byte#define POLL_TEMP                           1               // Poll message TEMP octet#define POLL_VOLT                           2               // Poll message Voltage octet// -------------------------------------------------------------------------------------------------------------------
 //      Data Definitions
 // -------------------------------------------------------------------------------------------------------------------
 
@@ -54,7 +52,7 @@ void instanceconfigframeheader(instance_data_t *inst, int ackrequest) {
 #if (USING_64BIT_ADDR==1)
 	//source/dest addressing modes and frame version
 	inst->msg.frameCtrl[1] = 0xC /*dest extended address (64bits)*/
-			| 0xC0 /*src extended address (64bits)*/;
+	| 0xC0 /*src extended address (64bits)*/;
 #else
 	inst->msg.frameCtrl[1] = 0x8 /*dest short address (16bits)*/| 0x80 /*src short address (16bits)*/;
 #endif
@@ -204,7 +202,9 @@ int testapprun_s(instance_data_t *inst, int message) {
 			//the short address is assigned by the anchor
 #else
 			//set source address into the message structure
-			memcpy(&inst->msg.sourceAddr[0], inst->payload.tagAddressList[instance_tagaddr], ADDR_BYTE_SIZE_L);
+			memcpy(&inst->msg.sourceAddr[0],
+					inst->payload.tagAddressList[instance_tagaddr],
+					ADDR_BYTE_SIZE_L);
 #endif
 
 			//change to next state - send a Poll message to 1st anchor in the list
@@ -220,8 +220,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 
 			dwt_setdblrxbuffmode(inst->doublebufferon); //disable double RX buffer
 
-#if (ENABLE_AUTO_ACK == 1) //NOTE - Auto ACK only works if frame filtering is enabled!			dwt_enableautoack(ACK_RESPONSE_TIME); //wait for ACK_RESPONSE_TIME symbols (e.g. 5) before replying with the ACK
-#endif
+#if (ENABLE_AUTO_ACK == 1) //NOTE - Auto ACK only works if frame filtering is enabled!			dwt_enableautoack(ACK_RESPONSE_TIME); //wait for ACK_RESPONSE_TIME symbols (e.g. 5) before replying with the ACK#endif
 
 #if (DEEP_SLEEP == 1)
 #if (DEEP_SLEEP_AUTOWAKEUP == 1)
@@ -264,7 +263,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 #if (DR_DISCOVERY == 0)
 			//set source address into the message structure
 			memcpy(&inst->msg.sourceAddr[0], &inst->payload.anchorAddress,
-					ADDR_BYTE_SIZE_L);
+			ADDR_BYTE_SIZE_L);
 #else
 			//set source address into the message structure
 			memcpy(&inst->msg.sourceAddr[0], inst->eui64, ADDR_BYTE_SIZE_L);
@@ -277,8 +276,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 			dwt_setrxaftertxdelay(0);
 			//change to next state - wait to receive a message
 			inst->testAppState = TA_TXCALL_WAIT_SEND;
-#if (ENABLE_AUTO_ACK == 1) //NOTE - Auto ACK only works if frame filtering is enabled!			dwt_setrxaftertxdelay(WAIT_FOR_RESPONSE_DLY); //set the RX after TX delay time
-#endif
+#if (ENABLE_AUTO_ACK == 1) //NOTE - Auto ACK only works if frame filtering is enabled!			dwt_setrxaftertxdelay(WAIT_FOR_RESPONSE_DLY); //set the RX after TX delay time#endif
 
 //NOTE: auto rx re-enable does not stop the rx after sending an ACK in auto ACK mode - so not used here
 //#if (DECA_BADF_ACCUMULATOR == 0) //can use RX auto re-enable when not logging/plotting errored frames
@@ -407,7 +405,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 		inst->blinkmsg.frameCtrl = 0xC5;
 		inst->blinkmsg.seqNum = inst->frame_sn++;
 
-		dwt_writetxdata(flength, (uint8 *) (&inst->blinkmsg), 0);// write the frame data
+		dwt_writetxdata(flength, (uint8 *) (&inst->blinkmsg), 0); // write the frame data
 		dwt_writetxfctrl(flength, 0);
 
 #if (DEEP_SLEEP_AUTOWAKEUP == 1)
@@ -520,7 +518,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 #endif
 #if (USING_64BIT_ADDR==1)
 		setupmacframedata(inst, TAG_POLL_MSG_LEN,
-				FRAME_CRTL_AND_ADDRESS_L + FRAME_CRC, RTLS_DEMO_MSG_TAG_POLL,
+		FRAME_CRTL_AND_ADDRESS_L + FRAME_CRC, RTLS_DEMO_MSG_TAG_POLL,
 				!ACK_REQUESTED);
 #else
 		setupmacframedata(inst, TAG_POLL_MSG_LEN, FRAME_CRTL_AND_ADDRESS_S + FRAME_CRC, RTLS_DEMO_MSG_TAG_POLL, !ACK_REQUESTED);
@@ -548,57 +546,56 @@ int testapprun_s(instance_data_t *inst, int message) {
 
 	case TA_TXCALL_WAIT_SEND: {
 
-	#if (DR_DISCOVERY == 1)
-			//NOTE the anchor address is set after receiving the ranging initialisation message
-			inst->instToSleep = 1;//go to Sleep after this poll
-	#else
-			//set destination address
-			if (tagcalladdress(inst)) {
-				break;
-			}
-	#endif
-	#if (PUT_TEMP_VOLTAGE_INTO_POLL == 1)
-			{
-				inst->msg.messageData[POLL_TEMP] = dwt_readwakeuptemp(); // Temperature value set sampled at wakeup
-				inst->msg.messageData[POLL_VOLT] = dwt_readwakeupvbat();// (Battery) Voltage value set sampled at wakeup
-			}
-	#else
-			inst->msg.messageData[POLL_TEMP] = inst->msg.messageData[POLL_VOLT] = 0;
-	#endif
-	#if (USING_64BIT_ADDR==1)
-			setupmacframedata(inst, TAG_POLL_MSG_LEN,
-					FRAME_CRTL_AND_ADDRESS_L + FRAME_CRC, RTLS_DEMO_MSG_ANCHOR_CALL,
-					!ACK_REQUESTED);// 2015.01.17 JB
-	#else
-			setupmacframedata(inst, TAG_POLL_MSG_LEN, FRAME_CRTL_AND_ADDRESS_S + FRAME_CRC, RTLS_DEMO_MSG_TAG_POLL, !ACK_REQUESTED);
-	#endif
-			//set the delayed rx on time (the response message will be sent after this delay)
-			dwt_setrxaftertxdelay((uint32) inst->fixedReplyDelay_sy); //units are 1.0256us - wait for wait4respTIM before RX on (delay RX)
-			dwt_setrxtimeout((uint16) inst->fwtoTime_sy); //units are us - wait for 7ms after RX on (but as using delayed RX this timeout should happen at response time + 7ms)
-
-			dwt_writetxdata(inst->psduLength, (uint8 *) &inst->msg, 0);	// write the frame data
-
-			//response is expected
-			inst->wait4ack = DWT_RESPONSE_EXPECTED;
-
-			dwt_writetxfctrl(inst->psduLength, 0);
-
-			dwt_starttx(DWT_START_TX_IMMEDIATE | inst->wait4ack);
-			inst->sentSN = inst->msg.seqNum;
-
-			inst->testAppState = TA_TX_CALL_WAIT_CONF;               // wait confirmation
-			inst->previousState = TA_TXCALL_WAIT_SEND;
-			inst->done = INST_DONE_WAIT_FOR_NEXT_EVENT; //will use RX FWTO to time out (set below)
-
-		}
+#if (DR_DISCOVERY == 1)
+		//NOTE the anchor address is set after receiving the ranging initialisation message
+		inst->instToSleep = 1;//go to Sleep after this poll
+#else
+		//set destination address
+		if (tagcalladdress(inst)) {
 			break;
+		}
+#endif
+#if (PUT_TEMP_VOLTAGE_INTO_POLL == 1)
+		{
+			inst->msg.messageData[POLL_TEMP] = dwt_readwakeuptemp(); // Temperature value set sampled at wakeup
+			inst->msg.messageData[POLL_VOLT] = dwt_readwakeupvbat();// (Battery) Voltage value set sampled at wakeup
+		}
+#else
+		inst->msg.messageData[POLL_TEMP] = inst->msg.messageData[POLL_VOLT] = 0;
+#endif
+#if (USING_64BIT_ADDR==1)
+		setupmacframedata(inst, TAG_POLL_MSG_LEN,
+		FRAME_CRTL_AND_ADDRESS_L + FRAME_CRC, RTLS_DEMO_MSG_ANCHOR_CALL,
+				!ACK_REQUESTED); // 2015.01.17 JB
+#else
+		setupmacframedata(inst, TAG_POLL_MSG_LEN, FRAME_CRTL_AND_ADDRESS_S + FRAME_CRC, RTLS_DEMO_MSG_TAG_POLL, !ACK_REQUESTED);
+#endif
+		//set the delayed rx on time (the response message will be sent after this delay)
+		dwt_setrxaftertxdelay((uint32) inst->fixedReplyDelay_sy); //units are 1.0256us - wait for wait4respTIM before RX on (delay RX)
+		dwt_setrxtimeout((uint16) inst->fwtoTime_sy); //units are us - wait for 7ms after RX on (but as using delayed RX this timeout should happen at response time + 7ms)
 
-			/*
-			 * 50% complete
-			 * need to chang poll mesage
-			 * 2015.01.17 JB
-			 */
+		dwt_writetxdata(inst->psduLength, (uint8 *) &inst->msg, 0);	// write the frame data
 
+		//response is expected
+		inst->wait4ack = DWT_RESPONSE_EXPECTED;
+
+		dwt_writetxfctrl(inst->psduLength, 0);
+
+		dwt_starttx(DWT_START_TX_IMMEDIATE | inst->wait4ack);
+		inst->sentSN = inst->msg.seqNum;
+
+		inst->testAppState = TA_TX_CALL_WAIT_CONF;          // wait confirmation
+		inst->previousState = TA_TXCALL_WAIT_SEND;
+		inst->done = INST_DONE_WAIT_FOR_NEXT_EVENT; //will use RX FWTO to time out (set below)
+
+	}
+		break;
+
+		/*
+		 * 50% complete
+		 * need to chang poll mesage
+		 * 2015.01.17 JB
+		 */
 
 	case TA_TXRESPONSE_WAIT_SEND: {
 		//printf("TA_TXRESPONSE\n") ;
@@ -610,7 +607,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 
 #if (USING_64BIT_ADDR==1)
 		setupmacframedata(inst, ANCH_RESPONSE_MSG_LEN,
-				FRAME_CRTL_AND_ADDRESS_L + FRAME_CRC, RTLS_DEMO_MSG_ANCH_RESP,
+		FRAME_CRTL_AND_ADDRESS_L + FRAME_CRC, RTLS_DEMO_MSG_ANCH_RESP,
 				!ACK_REQUESTED);
 #else
 		setupmacframedata(inst, ANCH_RESPONSE_MSG_LEN, FRAME_CRTL_AND_ADDRESS_S + FRAME_CRC, RTLS_DEMO_MSG_ANCH_RESP, !ACK_REQUESTED);
@@ -667,7 +664,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 
 #if (USING_64BIT_ADDR==1)
 		setupmacframedata(inst, TAG_FINAL_MSG_LEN,
-				FRAME_CRTL_AND_ADDRESS_L + FRAME_CRC, RTLS_DEMO_MSG_TAG_FINAL,
+		FRAME_CRTL_AND_ADDRESS_L + FRAME_CRC, RTLS_DEMO_MSG_TAG_FINAL,
 				!ACK_REQUESTED);
 #else
 		setupmacframedata(inst, TAG_FINAL_MSG_LEN, FRAME_CRTL_AND_ADDRESS_S + FRAME_CRC, RTLS_DEMO_MSG_TAG_FINAL, !ACK_REQUESTED);
@@ -739,7 +736,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 //NOTE - Auto ACK only works if frame filtering is enabled!
 #if (USING_64BIT_ADDR==1)
 		setupmacframedata(inst, TOF_REPORT_MSG_LEN,
-				FRAME_CRTL_AND_ADDRESS_L + FRAME_CRC, RTLS_DEMO_MSG_ANCH_TOFR,
+		FRAME_CRTL_AND_ADDRESS_L + FRAME_CRC, RTLS_DEMO_MSG_ANCH_TOFR,
 				((ENABLE_AUTO_ACK == 1) ? (ACK_REQUESTED) : (!ACK_REQUESTED)));
 #else
 		setupmacframedata(inst, TOF_REPORT_MSG_LEN, FRAME_CRTL_AND_ADDRESS_S + FRAME_CRC, RTLS_DEMO_MSG_ANCH_TOFR, ((ENABLE_AUTO_ACK == 1)?(ACK_REQUESTED):(!ACK_REQUESTED)));
@@ -828,67 +825,57 @@ int testapprun_s(instance_data_t *inst, int message) {
 
 	}
 
-
 	case TA_TX_CALL_WAIT_CONF:
-			//printf("TA_TX_WAIT_CONF %d m%d %d states %08x %08x\n", inst->previousState, message, inst->newReportSent, dwt_read32bitreg(0x19), dwt_read32bitreg(0x0f)) ;
+		//printf("TA_TX_WAIT_CONF %d m%d %d states %08x %08x\n", inst->previousState, message, inst->newReportSent, dwt_read32bitreg(0x19), dwt_read32bitreg(0x0f)) ;
 
+	{
+		event_data_t* dw_event = instance_getevent(11); //get and clear this event
+
+		//NOTE: Can get the ACK before the TX confirm event for the frame requesting the ACK
+		//this happens because if polling the ISR the RX event will be processed 1st and then the TX event
+		//thus the reception of the ACK will be processed before the TX confirmation of the frame that requested it.
+		if (dw_event->type != DWT_SIG_TX_DONE) //wait for TX done confirmation
 		{
-			event_data_t* dw_event = instance_getevent(11); //get and clear this event
-
-			//NOTE: Can get the ACK before the TX confirm event for the frame requesting the ACK
-			//this happens because if polling the ISR the RX event will be processed 1st and then the TX event
-			//thus the reception of the ACK will be processed before the TX confirmation of the frame that requested it.
-			if (dw_event->type != DWT_SIG_TX_DONE) //wait for TX done confirmation
+			if (dw_event->type == DWT_SIG_RX_TIMEOUT) //got RX timeout - i.e. did not get the response (e.g. ACK)
 			{
-				if (dw_event->type == DWT_SIG_RX_TIMEOUT) //got RX timeout - i.e. did not get the response (e.g. ACK)
-				{
-					//printf("RX timeout in TA_TX_WAIT_CONF (%d)\n", inst->previousState);
-					//we need to wait for SIG_TX_DONE and then process the timeout and re-send the frame if needed
-					inst->gotTO = 1;
-				}
-				if (dw_event->type == SIG_RX_ACK) {
-					inst->wait4ack = 0; //clear the flag as the ACK has been received
-					inst_processackmsg(inst, dw_event->msgu.rxackmsg.seqNum);
-					//printf("RX ACK in TA_TX_WAIT_CONF... wait for TX confirm before changing state (%d)\n", inst->previousState);
-				}
-
-				inst->done = INST_DONE_WAIT_FOR_NEXT_EVENT;
-				break;
-
+				//printf("RX timeout in TA_TX_WAIT_CONF (%d)\n", inst->previousState);
+				//we need to wait for SIG_TX_DONE and then process the timeout and re-send the frame if needed
+				inst->gotTO = 1;
+			}
+			if (dw_event->type == SIG_RX_ACK) {
+				inst->wait4ack = 0; //clear the flag as the ACK has been received
+				inst_processackmsg(inst, dw_event->msgu.rxackmsg.seqNum);
+				//printf("RX ACK in TA_TX_WAIT_CONF... wait for TX confirm before changing state (%d)\n", inst->previousState);
 			}
 
-			inst->done = INST_NOT_DONE_YET;
-
-			if ((inst->previousState == TA_TXFINAL_WAIT_SEND) //tag will do immediate receive when waiting for report (as anchor sends it without delay)
-			&& (inst->tag2rxReport == 0)) //anchor is not sending the report to tag
-					{
-				inst->testAppState = TA_TXE_WAIT;
-				inst->nextState = TA_TXPOLL_WAIT_SEND;
-				break;
-			} else if (inst->gotTO) //timeout
-			{
-				//printf("got TO in TA_TX_WAIT_CONF\n");
-				inst_processrxtimeout(inst);
-				inst->gotTO = 0;
-				inst->wait4ack = 0; //clear this
-				break;
-			} else {
-				inst->txu.txTimeStamp = dw_event->timeStamp;
-
-				inst->testAppState = TA_RXE_WAIT; // After sending, tag expects response/report, anchor waits to receive a final/new poll
-				//fall into the next case (turn on the RX)
-				message = 0;
-			}
+			inst->done = INST_DONE_WAIT_FOR_NEXT_EVENT;
+			break;
 
 		}
 
+		inst->done = INST_NOT_DONE_YET;
+
+		if (inst->previousState == TA_TXCALL_WAIT_SEND) {
+			inst->testAppState = TA_RXE_WAIT;
+
+			break;
+		} else if (inst->gotTO) //timeout
+		{
+			//printf("got TO in TA_TX_WAIT_CONF\n");
+			inst_processrxtimeout(inst);
+			inst->gotTO = 0;
+			inst->wait4ack = 0; //clear this
+			break;
+		}
+
+	}
 
 		/*
-		 *
+		 * wait ack. if ack is arrive, go next state
+		 * 2015.01.19 JB
 		 */
 
 		//break ; // end case TA_TX_WAIT_CONF
-
 	case TA_RXE_WAIT:
 		// printf("TA_RXE_WAIT") ;
 	{
@@ -939,8 +926,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 						if (inst->fixedReplyDelay_ms != FIXED_REPLY_DELAY) {
 							inst->delayedReplyTime = dw_event->timeStamp
 									+ convertmicrosectodevicetimeu(
-											FIXED_LONG_BLINK_RESPONSE_DELAY
-													* 1000.0); // time we should send the blink response
+									FIXED_LONG_BLINK_RESPONSE_DELAY * 1000.0); // time we should send the blink response
 						} else {
 							inst->delayedReplyTime = dw_event->timeStamp
 									+ inst->fixedReplyDelay; // time we should send the blink response
@@ -1018,7 +1004,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 			switch (dw_event->msgu.frame[1]) {
 			case 0xCC: //
 				memcpy(&srcAddr[0], &(dw_event->msgu.rxmsg_ll.sourceAddr[0]),
-						ADDR_BYTE_SIZE_L);
+				ADDR_BYTE_SIZE_L);
 				fn_code = dw_event->msgu.rxmsg_ll.messageData[FCODE];
 				messageData = &dw_event->msgu.rxmsg_ll.messageData[0];
 				srclen = ADDR_BYTE_SIZE_L;
@@ -1026,7 +1012,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 				break;
 			case 0xC8: //
 				memcpy(&srcAddr[0], &(dw_event->msgu.rxmsg_sl.sourceAddr[0]),
-						ADDR_BYTE_SIZE_L);
+				ADDR_BYTE_SIZE_L);
 				fn_code = dw_event->msgu.rxmsg_sl.messageData[FCODE];
 				messageData = &dw_event->msgu.rxmsg_sl.messageData[0];
 				srclen = ADDR_BYTE_SIZE_L;
@@ -1034,7 +1020,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 				break;
 			case 0x8C: //
 				memcpy(&srcAddr[0], &(dw_event->msgu.rxmsg_ls.sourceAddr[0]),
-						ADDR_BYTE_SIZE_S);
+				ADDR_BYTE_SIZE_S);
 				fn_code = dw_event->msgu.rxmsg_ls.messageData[FCODE];
 				messageData = &dw_event->msgu.rxmsg_ls.messageData[0];
 				srclen = ADDR_BYTE_SIZE_S;
@@ -1042,7 +1028,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 				break;
 			case 0x88: //
 				memcpy(&srcAddr[0], &(dw_event->msgu.rxmsg_ss.sourceAddr[0]),
-						ADDR_BYTE_SIZE_S);
+				ADDR_BYTE_SIZE_S);
 				fn_code = dw_event->msgu.rxmsg_ss.messageData[FCODE];
 				messageData = &dw_event->msgu.rxmsg_ss.messageData[0];
 				srclen = ADDR_BYTE_SIZE_S;
@@ -1096,7 +1082,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 
 #if (USING_64BIT_ADDR == 1)
 						memcpy(&inst->msg.destAddr[0], &srcAddr[0],
-								ADDR_BYTE_SIZE_L); //set the anchor address for the reply (set destination address)
+						ADDR_BYTE_SIZE_L); //set the anchor address for the reply (set destination address)
 #else
 								memcpy(&inst->msg.destAddr[0], &srcAddr[0], ADDR_BYTE_SIZE_S); //set anchor address for the reply (set destination address)
 								inst->msg.sourceAddr[0] = messageData[RES_R1];//set tag short address
@@ -1146,7 +1132,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 
 #if (USING_64BIT_ADDR == 1)
 					memcpy(&inst->msg.destAddr[0], &srcAddr[0],
-							ADDR_BYTE_SIZE_L); //remember who to send the reply to (set destination address)
+					ADDR_BYTE_SIZE_L); //remember who to send the reply to (set destination address)
 #else
 							memcpy(&inst->msg.destAddr[0], &srcAddr[0], ADDR_BYTE_SIZE_S); //remember who to send the reply to (set destination address)
 #endif
@@ -1154,28 +1140,28 @@ int testapprun_s(instance_data_t *inst, int message) {
 					break; //RTLS_DEMO_MSG_TAG_POLL
 
 				case RTLS_DEMO_MSG_ANCHOR_CALL: {
-									non_user_payload_len = TAG_POLL_MSG_LEN;
+					non_user_payload_len = TAG_POLL_MSG_LEN;
 
-									if (!inst->frameFilteringEnabled) {
-										// if we missed the ACK to the ranging init message we may not have turned frame filtering on
-										dwt_enableframefilter(DWT_FF_DATA_EN | DWT_FF_ACK_EN); //we are starting ranging - enable the filter....
-										inst->frameFilteringEnabled = 1;
-									}
+					if (!inst->frameFilteringEnabled) {
+						// if we missed the ACK to the ranging init message we may not have turned frame filtering on
+						dwt_enableframefilter(DWT_FF_DATA_EN | DWT_FF_ACK_EN); //we are starting ranging - enable the filter....
+						inst->frameFilteringEnabled = 1;
+					}
 
-									if (inst->doublebufferon == 1) {
-										dwt_forcetrxoff();
-									}
-									inst->testAppState = TA_TXPOLL_WAIT_SEND; // send our response
-									inst->canprintinfo = 0;
+					if (inst->doublebufferon == 1) {
+						dwt_forcetrxoff();
+					}
+					inst->testAppState = TA_TXPOLL_WAIT_SEND; // send our response
+					inst->canprintinfo = 0;
 
-				#if (USING_64BIT_ADDR == 1)
-									memcpy(&inst->msg.destAddr[0], &srcAddr[0],
-											ADDR_BYTE_SIZE_L); //remember who to send the reply to (set destination address)
-				#else
-											memcpy(&inst->msg.destAddr[0], &srcAddr[0], ADDR_BYTE_SIZE_S); //remember who to send the reply to (set destination address)
-				#endif
-								}
-									break; //RTLS_DEMO_MSG_ANCHOR_CALL
+#if (USING_64BIT_ADDR == 1)
+					memcpy(&inst->msg.destAddr[0], &srcAddr[0],
+					ADDR_BYTE_SIZE_L); //remember who to send the reply to (set destination address)
+#else
+					memcpy(&inst->msg.destAddr[0], &srcAddr[0], ADDR_BYTE_SIZE_S); //remember who to send the reply to (set destination address)
+#endif
+				}
+					break; //RTLS_DEMO_MSG_ANCHOR_CALL
 
 				case RTLS_DEMO_MSG_ANCH_RESP: {
 					non_user_payload_len = ANCH_RESPONSE_MSG_LEN;
@@ -1205,7 +1191,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 					inst->testAppState = TA_TXFINAL_WAIT_SEND; // send our response / the final
 #if (USING_64BIT_ADDR == 1)
 					memcpy(&inst->relpyAddress[0], &srcAddr[0],
-							ADDR_BYTE_SIZE_L); //remember who to send the reply to (set destination address)
+					ADDR_BYTE_SIZE_L); //remember who to send the reply to (set destination address)
 #else
 							memcpy(&inst->relpyAddress[0], &srcAddr[0], ADDR_BYTE_SIZE_S); //remember who to send the reply to (set destination address)
 #endif
@@ -1639,19 +1625,18 @@ uint64 instance_get_anchaddr(void) //get anchor address (that sent the ToF)
 
 void instance_readaccumulatordata(void) {
 #if DECA_SUPPORT_SOUNDING==1
-	int instance = 0;
-	uint16 len = 992; //default (16M prf)
+int instance = 0;
+uint16 len = 992; //default (16M prf)
 
-	if (instance_data[instance].configData.prf == DWT_PRF_64M)// Figure out length to read
-	len = 1016;
+if (instance_data[instance].configData.prf == DWT_PRF_64M)// Figure out length to read
+len = 1016;
 
-	instance_data[instance].buff.accumLength = len;// remember Length, then read the accumulator data
+instance_data[instance].buff.accumLength = len;// remember Length, then read the accumulator data
 
-	len = len*4+1;// extra 1 as first byte is dummy due to internal memory access delay
+len = len*4+1;// extra 1 as first byte is dummy due to internal memory access delay
 
-	dwt_readaccdata((uint8*)&(instance_data[instance].buff.accumData->dummy), len, 0);
+dwt_readaccdata((uint8*)&(instance_data[instance].buff.accumData->dummy), len, 0);
 #endif  // support_sounding}
-
 #endif
 
 /* ==========================================================

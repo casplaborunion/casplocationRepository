@@ -21,11 +21,9 @@
 // -------------------------------------------------------------------------------------------------------------------
 
 //application data message byte offsets
-#define FCODE                               0               // Function code is 1st byte of messageData#define PTXT                                1#define RRXT                                6
-#define FTXT                                11
+#define FCODE                               0               // Function code is 1st byte of messageData#define PTXT                                1#define RRXT                                6#define FTXT                                11
 #define TOFR                                1
-#define RES_R1                              1               // Response option octet 0x02 (1),#define RES_R2                              2               // Response option paramter 0x00 (1) - used to notify Tag that the report is coming#define RES_R3                              3               // Response option paramter 0x00 (1),#define RES_T1                              3               // Ranging request response delay low byte#define RES_T2                              4               // Ranging request response delay high byte#define POLL_TEMP                           1               // Poll message TEMP octet#define POLL_VOLT                           2               // Poll message Voltage octet// -------------------------------------------------------------------------------------------------------------------
-//      Data Definitions
+#define RES_R1                              1               // Response option octet 0x02 (1),#define RES_R2                              2               // Response option paramter 0x00 (1) - used to notify Tag that the report is coming#define RES_R3                              3               // Response option paramter 0x00 (1),#define RES_T1                              3               // Ranging request response delay low byte#define RES_T2                              4               // Ranging request response delay high byte#define POLL_TEMP                           1               // Poll message TEMP octet#define POLL_VOLT                           2               // Poll message Voltage octet// -------------------------------------------------------------------------------------------------------------------//      Data Definitions
 // -------------------------------------------------------------------------------------------------------------------
 
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -202,9 +200,8 @@ int testapprun_s(instance_data_t *inst, int message) {
 			//the short address is assigned by the anchor
 #else
 			//set source address into the message structure
-			memcpy(&inst->msg.sourceAddr[0],
-					inst->payload.tagAddressList[instance_tagaddr],
-					ADDR_BYTE_SIZE_L);
+			memcpy(&inst->msg.sourceAddr[0], inst->payload.tagAddressList,
+			ADDR_BYTE_SIZE_L);
 #endif
 
 			//change to next state - send a Poll message to 1st anchor in the list
@@ -221,7 +218,6 @@ int testapprun_s(instance_data_t *inst, int message) {
 			dwt_setdblrxbuffmode(inst->doublebufferon); //disable double RX buffer
 
 #if (ENABLE_AUTO_ACK == 1) //NOTE - Auto ACK only works if frame filtering is enabled!			dwt_enableautoack(ACK_RESPONSE_TIME); //wait for ACK_RESPONSE_TIME symbols (e.g. 5) before replying with the ACK#endif
-
 #if (DEEP_SLEEP == 1)
 #if (DEEP_SLEEP_AUTOWAKEUP == 1)
 			dwt_configuresleep(DWT_LOADUCODE|DWT_PRESRV_SLEEP|DWT_CONFIG|DWT_TANDV, DWT_WAKE_SLPCNT|DWT_WAKE_CS|DWT_SLP_EN); //configure the on wake parameters (upload the IC config settings)
@@ -277,7 +273,6 @@ int testapprun_s(instance_data_t *inst, int message) {
 			//change to next state - wait to receive a message
 			inst->testAppState = TA_TXCALL_WAIT_SEND;
 #if (ENABLE_AUTO_ACK == 1) //NOTE - Auto ACK only works if frame filtering is enabled!			dwt_setrxaftertxdelay(WAIT_FOR_RESPONSE_DLY); //set the RX after TX delay time#endif
-
 //NOTE: auto rx re-enable does not stop the rx after sending an ACK in auto ACK mode - so not used here
 //#if (DECA_BADF_ACCUMULATOR == 0) //can use RX auto re-enable when not logging/plotting errored frames
 			//inst->rxautoreenable = 1;
@@ -568,7 +563,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 		FRAME_CRTL_AND_ADDRESS_L + FRAME_CRC, RTLS_DEMO_MSG_ANCHOR_CALL,
 				!ACK_REQUESTED); // 2015.01.17 JB
 #else
-		setupmacframedata(inst, TAG_POLL_MSG_LEN, FRAME_CRTL_AND_ADDRESS_S + FRAME_CRC, RTLS_DEMO_MSG_TAG_POLL, !ACK_REQUESTED);
+				setupmacframedata(inst, TAG_POLL_MSG_LEN, FRAME_CRTL_AND_ADDRESS_S + FRAME_CRC, RTLS_DEMO_MSG_TAG_POLL, !ACK_REQUESTED);
 #endif
 		//set the delayed rx on time (the response message will be sent after this delay)
 		dwt_setrxaftertxdelay((uint32) inst->fixedReplyDelay_sy); //units are 1.0256us - wait for wait4respTIM before RX on (delay RX)
@@ -822,7 +817,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 			//fall into the next case (turn on the RX)
 			message = 0;
 		}
-		break ; // end case TA_TX_WAIT_CONF
+		break; // end case TA_TX_WAIT_CONF
 	}
 
 	case TA_TX_CALL_WAIT_CONF:
@@ -875,7 +870,6 @@ int testapprun_s(instance_data_t *inst, int message) {
 		 * wait ack. if ack is arrive, go next state
 		 * 2015.01.19 JB
 		 */
-
 
 	case TA_RXE_WAIT:
 		// printf("TA_RXE_WAIT") ;
@@ -1159,7 +1153,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 					memcpy(&inst->msg.destAddr[0], &srcAddr[0],
 					ADDR_BYTE_SIZE_L); //remember who to send the reply to (set destination address)
 #else
-					memcpy(&inst->msg.destAddr[0], &srcAddr[0], ADDR_BYTE_SIZE_S); //remember who to send the reply to (set destination address)
+							memcpy(&inst->msg.destAddr[0], &srcAddr[0], ADDR_BYTE_SIZE_S); //remember who to send the reply to (set destination address)
 #endif
 				}
 					break; //RTLS_DEMO_MSG_ANCHOR_CALL
@@ -1637,8 +1631,7 @@ instance_data[instance].buff.accumLength = len;// remember Length, then read the
 len = len*4+1;// extra 1 as first byte is dummy due to internal memory access delay
 
 dwt_readaccdata((uint8*)&(instance_data[instance].buff.accumData->dummy), len, 0);
-#endif  // support_sounding}
-#endif
+#endif  // support_sounding}#endif
 
 /* ==========================================================
 

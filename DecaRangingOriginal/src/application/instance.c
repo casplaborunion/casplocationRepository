@@ -218,7 +218,11 @@ int testapprun_s(instance_data_t *inst, int message)
 #else
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 				    dwt_setrxaftertxdelay(0);          /// added by REN 01.16
+				    writetoLCD( 40, 1, (const uint8 *) "INIT OK ");
                     inst->testAppState = TA_RXE_WAIT;  /// TA_TXPOLL_WAIT_SEND -> TA_RXE_WAIT   REN 01.16
+
+                    //JB need to change
+
 				    //change to next state - wait to receive a message
 #endif
                     // First time anchor listens we don't do a delayed RX
@@ -731,6 +735,7 @@ int testapprun_s(instance_data_t *inst, int message)
 
                 if(instancesendpacket(inst, DWT_START_TX_DELAYED))
                 {
+
                     // initiate the re-transmission
                     inst->testAppState = TA_TXE_WAIT ;
                     inst->nextState = TA_TXPOLL_WAIT_SEND ;
@@ -914,6 +919,7 @@ int testapprun_s(instance_data_t *inst, int message)
                 if (inst->previousState != TA_TXREPORT_WAIT_SEND) //we are going to use anchor timeout and re-send the report
                     inst->done = INST_DONE_WAIT_FOR_NEXT_EVENT; //using RX FWTO
             }
+            writetoLCD( 40, 1, (const uint8 *) "RXE_WAIT OK ");
 
             inst->testAppState = TA_RX_WAIT_DATA;   // let this state handle it
 
@@ -1170,7 +1176,7 @@ int testapprun_s(instance_data_t *inst, int message)
                             case RTLS_DEMO_MSG_ANCHOR_CALL:
                             {
 
-                            	memcpy(&srcAddr[0], &inst->payload.tagAddress, ADDR_BYTE_SIZE_L);//////////////////////////////////////ren 01.19
+                            	memcpy(&srcAddr[0], &inst->payload.tagAddressList[instance_tagaddr], ADDR_BYTE_SIZE_L);//////////////////////////////////////ren 01.19
 								//non_user_payload_len = TAG_POLL_MSG_LEN;
 								/*if(inst->mode == LISTENER) //don't process any ranging messages when in Listener mode
 								{
@@ -1196,7 +1202,9 @@ int testapprun_s(instance_data_t *inst, int message)
 
 								//printf("PollRx Timestamp: %4.15e\n", convertdevicetimetosecu(dw_event.timeStamp));
                                 //printf("Delay: %4.15e\n", convertdevicetimetosecu(inst->delayedReplyTime));
-                                printf("Call Received"); //////////////////////////////////////////////////////////////added by REN 01.17
+                                //printf("Call Received"); //////////////////////////////////////////////////////////////added by REN 01.17
+                                writetoLCD( 40, 1, (const uint8 *) "CALLING OK ");
+
 
                                 if(inst->doublebufferon == 1)
                                 {

@@ -21,17 +21,7 @@
 // -------------------------------------------------------------------------------------------------------------------
 
 //application data message byte offsets
-#define FCODE                               0               // Function code is 1st byte of messageData#define PTXT                                1#define RRXT                                6#define FTXT                                11
-#define TOFR                                1
-#define RES_R1                              1               // Response option octet 0x02 (1),#define RES_R2                              2               // Response option paramter 0x00 (1) - used to notify Tag that the report is coming#define RES_R3                              3               // Response option paramter 0x00 (1),#define RES_T1                              3               // Ranging request response delay low byte#define RES_T2                              4               // Ranging request response delay high byte#define POLL_TEMP                           1               // Poll message TEMP octet#define POLL_VOLT                           2               // Poll message Voltage octet// -------------------------------------------------------------------------------------------------------------------//      Data Definitions
-// -------------------------------------------------------------------------------------------------------------------
-
-// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-// NOTE: the maximum RX timeout is ~ 65ms
-// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-// -------------------------------------------------------------------------------------------------------------------
-// Functions
+#define FCODE                               0               // Function code is 1st byte of messageData#define PTXT                                1#define RRXT                                6#define FTXT                                11#define TOFR                                1#define RES_R1                              1               // Response option octet 0x02 (1),#define RES_R2                              2               // Response option paramter 0x00 (1) - used to notify Tag that the report is coming#define RES_R3                              3               // Response option paramter 0x00 (1),#define RES_T1                              3               // Ranging request response delay low byte#define RES_T2                              4               // Ranging request response delay high byte#define POLL_TEMP                           1               // Poll message TEMP octet#define POLL_VOLT                           2               // Poll message Voltage octet// -------------------------------------------------------------------------------------------------------------------//      Data Definitions// -------------------------------------------------------------------------------------------------------------------// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!// NOTE: the maximum RX timeout is ~ 65ms// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!// -------------------------------------------------------------------------------------------------------------------// Functions
 // -------------------------------------------------------------------------------------------------------------------
 
 // -------------------------------------------------------------------------------------------------------------------
@@ -186,14 +176,17 @@ int instancesendpacket(instance_data_t *inst, int delayedTx) {
 // -------------------------------------------------------------------------------------------------------------------
 //
 int testapprun_s(instance_data_t *inst, int message) {
+	uint8 dataseq[40];
 
 	switch (inst->testAppState) {
 	case TA_INIT:
 		// printf("TA_INIT") ;
 		switch (inst->mode) {
 		case TAG: {
+			uint8 eui64[8];
 			dwt_enableframefilter(DWT_FF_DATA_EN | DWT_FF_ACK_EN); //allow data, ack frames;
 			inst->frameFilteringEnabled = 1;
+			memcpy(eui64, &inst->payload.tagAddress, sizeof(uint64));
 			dwt_setpanid(inst->panid);
 			dwt_seteui(inst->eui64);
 #if (USING_64BIT_ADDR==0)
@@ -210,23 +203,33 @@ int testapprun_s(instance_data_t *inst, int message) {
 			inst->testAppState = TA_TXBLINK_WAIT_SEND;
 			memcpy(inst->blinkmsg.tagID, inst->eui64, ADDR_BYTE_SIZE_L);
 #else
-			inst->testAppState = TA_TXPOLL_WAIT_SEND;
+			///////////////////////////////////////////////////////////////////////////////////////////////////////////
+			dwt_setrxaftertxdelay(0);          /// added by REN 01.16
+
+			dataseq[0] = 0x2;  //return cursor home
+			writetoLCD(1, 0, dataseq);
+			memcpy(&dataseq[0], (const uint8 *) "    INITIAL     ", 16);
+			writetoLCD(40, 1, dataseq); //send some data
+			memcpy(&dataseq[0], (const uint8 *) "    FINISH      ", 16);
+			writetoLCD(16, 1, dataseq); //send some data
+
+			inst->testAppState = TA_RXE_WAIT; /// TA_TXPOLL_WAIT_SEND -> TA_RXE_WAIT   REN 01.16
+
+			//JB need to change
+
 #endif
 
 			dwt_setautorxreenable(inst->rxautoreenable); //not necessary to auto RX re-enable as the receiver is on for a short time (Tag knows when the response is coming)
 
 			dwt_setdblrxbuffmode(inst->doublebufferon); //disable double RX buffer
 
-#if (ENABLE_AUTO_ACK == 1) //NOTE - Auto ACK only works if frame filtering is enabled!			dwt_enableautoack(ACK_RESPONSE_TIME); //wait for ACK_RESPONSE_TIME symbols (e.g. 5) before replying with the ACK#endif
-#if (DEEP_SLEEP == 1)
-#if (DEEP_SLEEP_AUTOWAKEUP == 1)
-			dwt_configuresleep(DWT_LOADUCODE|DWT_PRESRV_SLEEP|DWT_CONFIG|DWT_TANDV, DWT_WAKE_SLPCNT|DWT_WAKE_CS|DWT_SLP_EN); //configure the on wake parameters (upload the IC config settings)
-#else
-			//NOTE: on the EVK1000 the DEEPSLEEP is not actually putting the DW1000 into full DEEPSLEEP mode as XTAL is kept on
+#if (ENABLE_AUTO_ACK == 1) //NOTE - Auto ACK only works if frame filtering is enabled!			dwt_enableautoack(ACK_RESPONSE_TIME); //wait for ACK_RESPONSE_TIME symbols (e.g. 5) before replying with the ACK#endif#if (DEEP_SLEEP == 1)#if (DEEP_SLEEP_AUTOWAKEUP == 1)			dwt_configuresleep(			DWT_LOADUCODE | DWT_PRESRV_SLEEP | DWT_CONFIG | DWT_TANDV,			DWT_WAKE_SLPCNT | DWT_WAKE_CS | DWT_SLP_EN		); //configure the on wake parameters (upload the IC config settings)#else			//NOTE: on the EVK1000 the DEEPSLEEP is not actually putting the DW1000 into full DEEPSLEEP mode as XTAL is kept on
 #if (DEEP_SLEEP_XTAL_ON == 1)
 			dwt_configuresleep(DWT_LOADUCODE|DWT_PRESRV_SLEEP|DWT_CONFIG|DWT_TANDV, DWT_WAKE_CS|DWT_SLP_EN|DWT_XTAL_EN); //configure the on wake parameters (upload the IC config settings)
 #else
-			dwt_configuresleep(DWT_LOADUCODE|DWT_PRESRV_SLEEP|DWT_CONFIG|DWT_TANDV, DWT_WAKE_WK|DWT_WAKE_CS|DWT_SLP_EN); //configure the on wake parameters (upload the IC config settings)
+			dwt_configuresleep(
+			DWT_LOADUCODE | DWT_PRESRV_SLEEP | DWT_CONFIG | DWT_TANDV,
+			DWT_WAKE_WK | DWT_WAKE_CS | DWT_SLP_EN); //configure the on wake parameters (upload the IC config settings)
 #endif
 #endif
 #endif
@@ -269,18 +272,18 @@ int testapprun_s(instance_data_t *inst, int message) {
 #endif
 
 			// First time anchor listens we don't do a delayed RX
-			dwt_setrxaftertxdelay(0);
+			// dwt_setrxaftertxdelay(0);
 			//change to next state - wait to receive a message
+
+			dataseq[0] = 0x2;  //return cursor home
+			writetoLCD(1, 0, dataseq);
+			memcpy(&dataseq[0], (const uint8 *) "    INITIAL     ", 16);
+			writetoLCD(40, 1, dataseq); //send some data
+			memcpy(&dataseq[0], (const uint8 *) "    FINISH      ", 16);
+			writetoLCD(16, 1, dataseq); //send some data
+
 			inst->testAppState = TA_TXCALL_WAIT_SEND;
-#if (ENABLE_AUTO_ACK == 1) //NOTE - Auto ACK only works if frame filtering is enabled!			dwt_setrxaftertxdelay(WAIT_FOR_RESPONSE_DLY); //set the RX after TX delay time#endif
-//NOTE: auto rx re-enable does not stop the rx after sending an ACK in auto ACK mode - so not used here
-//#if (DECA_BADF_ACCUMULATOR == 0) //can use RX auto re-enable when not logging/plotting errored frames
-			//inst->rxautoreenable = 1;
-//#endif
-			dwt_setautorxreenable(inst->rxautoreenable);
-
-			dwt_setdblrxbuffmode(inst->doublebufferon); //enable double RX buffer
-
+#if (ENABLE_AUTO_ACK == 1) //NOTE - Auto ACK only works if frame filtering is enabled!			dwt_setrxaftertxdelay(WAIT_FOR_RESPONSE_DLY); //set the RX after TX delay time#endif//NOTE: auto rx re-enable does not stop the rx after sending an ACK in auto ACK mode - so not used here//#if (DECA_BADF_ACCUMULATOR == 0) //can use RX auto re-enable when not logging/plotting errored frames			//inst->rxautoreenable = 1;//#endif		dwt_setautorxreenable(inst->rxautoreenable);			dwt_setdblrxbuffmode(inst->doublebufferon); //enable double RX buffer
 			dwt_setrxtimeout(0);
 			inst->canprintinfo = 1;
 
@@ -502,6 +505,9 @@ int testapprun_s(instance_data_t *inst, int message) {
 		if (destaddress(inst)) {
 			break;
 		}
+		memcpy(&srcAddr[0], &inst->payload.tagAddress,
+		ADDR_BYTE_SIZE_L); ////////////////////////////////////// JB 2015.01.20
+
 #endif
 #if (PUT_TEMP_VOLTAGE_INTO_POLL == 1)
 		{
@@ -531,6 +537,13 @@ int testapprun_s(instance_data_t *inst, int message) {
 
 		dwt_starttx(DWT_START_TX_IMMEDIATE | inst->wait4ack);
 		inst->sentSN = inst->msg.seqNum;
+
+		dataseq[0] = 0x2;  //return cursor home
+		writetoLCD(1, 0, dataseq);
+		memcpy(&dataseq[0], (const uint8 *) "    POLLING     ", 16);
+		writetoLCD(40, 1, dataseq); //send some data
+		memcpy(&dataseq[0], (const uint8 *) "    SEND END    ", 16);
+		writetoLCD(16, 1, dataseq); //send some data
 
 		inst->testAppState = TA_TX_WAIT_CONF;               // wait confirmation
 		inst->previousState = TA_TXPOLL_WAIT_SEND;
@@ -579,6 +592,13 @@ int testapprun_s(instance_data_t *inst, int message) {
 		dwt_starttx(DWT_START_TX_IMMEDIATE | inst->wait4ack);
 		inst->sentSN = inst->msg.seqNum;
 
+		dataseq[0] = 0x2;  //return cursor home
+		writetoLCD(1, 0, dataseq);
+		memcpy(&dataseq[0], (const uint8 *) "    CALLING     ", 16);
+		writetoLCD(40, 1, dataseq); //send some data
+		memcpy(&dataseq[0], (const uint8 *) "    SEND END    ", 16);
+		writetoLCD(16, 1, dataseq); //send some data
+
 		inst->testAppState = TA_TX_CALL_WAIT_CONF;          // wait confirmation
 		inst->previousState = TA_TXCALL_WAIT_SEND;
 		inst->done = INST_DONE_WAIT_FOR_NEXT_EVENT; //will use RX FWTO to time out (set below)
@@ -588,7 +608,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 
 		/*
 		 * 50% complete
-		 * need to chang poll mesage
+		 * need to change poll message
 		 * 2015.01.17 JB
 		 */
 
@@ -824,7 +844,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 		//printf("TA_TX_WAIT_CONF %d m%d %d states %08x %08x\n", inst->previousState, message, inst->newReportSent, dwt_read32bitreg(0x19), dwt_read32bitreg(0x0f)) ;
 
 	{
-		event_data_t* dw_event = instance_getevent(11); //get and clear this event
+		event_data_t* dw_event = instance_getevent(19); //get and clear this event
 
 		//NOTE: Can get the ACK before the TX confirm event for the frame requesting the ACK
 		//this happens because if polling the ISR the RX event will be processed 1st and then the TX event
@@ -852,14 +872,27 @@ int testapprun_s(instance_data_t *inst, int message) {
 
 		if (inst->previousState == TA_TXCALL_WAIT_SEND) {
 			inst->testAppState = TA_RXE_WAIT;
+			dataseq[0] = 0x2;  //return cursor home
+			writetoLCD(1, 0, dataseq);
+			memcpy(&dataseq[0], (const uint8 *) "    CALLING     ", 16);
+			writetoLCD(40, 1, dataseq); //send some data
+			memcpy(&dataseq[0], (const uint8 *) "    FINISH      ", 16);
+			writetoLCD(16, 1, dataseq); //send some data
 
 			break;
 		} else if (inst->gotTO) //timeout
 		{
 			//printf("got TO in TA_TX_WAIT_CONF\n");
 			inst->testAppState = TA_TXCALL_WAIT_SEND;
+			dataseq[0] = 0x2;  //return cursor home
+			writetoLCD(1, 0, dataseq);
+			memcpy(&dataseq[0], (const uint8 *) "    CALLING     ", 16);
+			writetoLCD(40, 1, dataseq); //send some data
+			memcpy(&dataseq[0], (const uint8 *) "    AGAIN       ", 16);
+			writetoLCD(16, 1, dataseq); //send some data
 			inst->gotTO = 0;
 			inst->wait4ack = 0; //clear this
+			//instance_tagaddr++;
 			break;
 		}
 		break;
@@ -1146,8 +1179,16 @@ int testapprun_s(instance_data_t *inst, int message) {
 					if (inst->doublebufferon == 1) {
 						dwt_forcetrxoff();
 					}
+
+					dataseq[0] = 0x2;  //return cursor home
+					writetoLCD(1, 0, dataseq);
+					memcpy(&dataseq[0], (const uint8 *) "    CALLING     ", 16);
+					writetoLCD(40, 1, dataseq); //send some data
+					memcpy(&dataseq[0], (const uint8 *) "    ACCEPT      ", 16);
+					writetoLCD(16, 1, dataseq); //send some data
+
 					inst->testAppState = TA_TXPOLL_WAIT_SEND; // send our response
-					inst->canprintinfo = 0;
+					inst->canprintinfo = 1;
 
 #if (USING_64BIT_ADDR == 1)
 					memcpy(&inst->msg.destAddr[0], &srcAddr[0],
@@ -1620,27 +1661,28 @@ uint64 instance_get_anchaddr(void) //get anchor address (that sent the ToF)
 
 void instance_readaccumulatordata(void) {
 #if DECA_SUPPORT_SOUNDING==1
-int instance = 0;
-uint16 len = 992; //default (16M prf)
+	int instance = 0;
+	uint16 len = 992; //default (16M prf)
 
-if (instance_data[instance].configData.prf == DWT_PRF_64M)// Figure out length to read
-len = 1016;
+	if (instance_data[instance].configData.prf == DWT_PRF_64M)// Figure out length to read
+	len = 1016;
 
-instance_data[instance].buff.accumLength = len;// remember Length, then read the accumulator data
+	instance_data[instance].buff.accumLength = len;// remember Length, then read the accumulator data
 
-len = len*4+1;// extra 1 as first byte is dummy due to internal memory access delay
+	len = len*4+1;// extra 1 as first byte is dummy due to internal memory access delay
 
-dwt_readaccdata((uint8*)&(instance_data[instance].buff.accumData->dummy), len, 0);
-#endif  // support_sounding}#endif
+	dwt_readaccdata((uint8*)&(instance_data[instance].buff.accumData->dummy), len, 0);
+#endif  // support_sounding}#endif/* ==========================================================	Notes:	Previously code	handled multiple	instances in
+	a single
+	console application
 
-/* ==========================================================
+	Now have
+	changed it
+	to
+	do a single
+	instance only
+. With minimal code changes...(i.e. kept [instance] index but it is always 0.
 
- Notes:
+		Windows application should call instance_init() once and then in the "main loop" call instance_run().
 
- Previously code handled multiple instances in a single console application
-
- Now have changed it to do a single instance only. With minimal code changes...(i.e. kept [instance] index but it is always 0.
-
- Windows application should call instance_init() once and then in the "main loop" call instance_run().
-
- */
+		*/

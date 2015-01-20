@@ -175,7 +175,7 @@ void addressconfigure(void) {
 	ipc.anchorAddress = anchorAddressList[instance_anchaddr];
 	ipc.anchorAddressList = anchorAddressList;
 	ipc.anchorListSize = ANCHOR_LIST_SIZE;
-	ipc.anchorPollMask = 0x1;               // anchor poll mask
+	ipc.anchorPollMask = 0x7;               // anchor poll mask
 //    ipc.anchorPollMask = 0x7;               // tag poll mask
 
 	ipc.tagAddress = tagAddressList[instance_tagaddr];

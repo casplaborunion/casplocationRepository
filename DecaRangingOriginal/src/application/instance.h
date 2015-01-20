@@ -232,8 +232,8 @@ typedef enum inst_states
     TA_TXBLINK_WAIT_SEND,       //10
     TA_TXRANGINGINIT_WAIT_SEND,  //11
 
-    TA_TXCALL_WAIT_SEND,        // 2015.01.17 JB
-    TA_TX_CALL_WAIT_CONF        // 2015.01.17 JB
+    TA_TXCALL_WAIT_SEND,        //12	// 2015.01.17 JB
+    TA_TX_CALL_WAIT_CONF        //13	// 2015.01.17 JB
 
 } INST_STATES;
 

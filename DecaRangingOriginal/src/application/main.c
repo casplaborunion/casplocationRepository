@@ -26,8 +26,8 @@ extern void usb_printconfig(void);
 extern void send_usbmessage(uint8*, int);
 
 //#define SOFTWARE_VER_STRING    "Version 2.25 DG" //
-//#define SOFTWARE_VER_STRING    "TAG Original" //
-#define SOFTWARE_VER_STRING    "Master Anchor" //
+#define SOFTWARE_VER_STRING    "Test TAG1" //
+//#define SOFTWARE_VER_STRING    "Master Anchor" //
 int instance_tagaddr = 0; //0 = 0xDECA010000000001; 1 = 0xDECA010000000002; 2 = 0xDECA010000000003 3 = 0xDECA010000000004 4 = 0xDECA010000000005
 /*
  * tag address index. initial value is 0.

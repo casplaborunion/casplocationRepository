@@ -200,7 +200,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 			//the short address is assigned by the anchor
 #else
 			//set source address into the message structure
-			memcpy(&inst->msg.sourceAddr[0], inst->payload.tagAddressList,
+			memcpy(&inst->msg.sourceAddr[0], inst->payload.tagAddress,
 			ADDR_BYTE_SIZE_L);
 #endif
 

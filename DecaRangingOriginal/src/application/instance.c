@@ -1103,7 +1103,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 				//non - discovery mode - association is not used, process all messages
 				fcode = fn_code;
 #endif
-				switch (fcode) {
+				switch (fcode) {44
 				case RTLS_DEMO_MSG_RNG_INIT: {
 					non_user_payload_len = RANGINGINIT_MSG_LEN;
 					if (inst->mode == TAG_TDOA) //only start ranging with someone if not ranging already

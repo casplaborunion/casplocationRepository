@@ -22,7 +22,6 @@
 
 //application data message byte offsets
 #define FCODE                               0               // Function code is 1st byte of messageData#define PTXT                                1#define RRXT                                6#define FTXT                                11#define TOFR                                1#define RES_R1                              1               // Response option octet 0x02 (1),#define RES_R2                              2               // Response option paramter 0x00 (1) - used to notify Tag that the report is coming#define RES_R3                              3               // Response option paramter 0x00 (1),#define RES_T1                              3               // Ranging request response delay low byte#define RES_T2                              4               // Ranging request response delay high byte#define POLL_TEMP                           1               // Poll message TEMP octet#define POLL_VOLT                           2               // Poll message Voltage octet// -------------------------------------------------------------------------------------------------------------------//      Data Definitions// -------------------------------------------------------------------------------------------------------------------// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!// NOTE: the maximum RX timeout is ~ 65ms// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!// -------------------------------------------------------------------------------------------------------------------// Functions// -------------------------------------------------------------------------------------------------------------------
-
 // -------------------------------------------------------------------------------------------------------------------
 //
 // function to construct the message/frame header bytes
@@ -222,12 +221,13 @@ int testapprun_s(instance_data_t *inst, int message) {
 
 			dwt_setdblrxbuffmode(inst->doublebufferon); //disable double RX buffer
 
-#if (ENABLE_AUTO_ACK == 1) //NOTE - Auto ACK only works if frame filtering is enabled!			dwt_enableautoack(ACK_RESPONSE_TIME); //wait for ACK_RESPONSE_TIME symbols (e.g. 5) before replying with the ACK#endif#if (DEEP_SLEEP == 1)#if (DEEP_SLEEP_AUTOWAKEUP == 1)			dwt_configuresleep(			DWT_LOADUCODE | DWT_PRESRV_SLEEP | DWT_CONFIG | DWT_TANDV,			DWT_WAKE_SLPCNT | DWT_WAKE_CS | DWT_SLP_EN		); //configure the on wake parameters (upload the IC config settings)#else			//NOTE: on the EVK1000 the DEEPSLEEP is not actually putting the DW1000 into full DEEPSLEEP mode as XTAL is kept on#if (DEEP_SLEEP_XTAL_ON == 1)
-			dwt_configuresleep(DWT_LOADUCODE|DWT_PRESRV_SLEEP|DWT_CONFIG|DWT_TANDV, DWT_WAKE_CS|DWT_SLP_EN|DWT_XTAL_EN); //configure the on wake parameters (upload the IC config settings)
-#else
-			dwt_configuresleep(
+#if (ENABLE_AUTO_ACK == 1) //NOTE - Auto ACK only works if frame filtering is enabled!			dwt_enableautoack(ACK_RESPONSE_TIME); //wait for ACK_RESPONSE_TIME symbols (e.g. 5) before replying with the ACK#endif#if (DEEP_SLEEP == 1)#if (DEEP_SLEEP_AUTOWAKEUP == 1)			dwt_configuresleep(			DWT_LOADUCODE | DWT_PRESRV_SLEEP | DWT_CONFIG | DWT_TANDV,			DWT_WAKE_SLPCNT | DWT_WAKE_CS | DWT_SLP_EN		); //configure the on wake parameters (upload the IC config settings)#else			//NOTE: on the EVK1000 the DEEPSLEEP is not actually putting the DW1000 into full DEEPSLEEP mode as XTAL is kept on#if (DEEP_SLEEP_XTAL_ON == 1)			dwt_configuresleep(
 					DWT_LOADUCODE | DWT_PRESRV_SLEEP | DWT_CONFIG | DWT_TANDV,
-					DWT_WAKE_WK | DWT_WAKE_CS | DWT_SLP_EN); //configure the on wake parameters (upload the IC config settings)
+					DWT_WAKE_CS | DWT_SLP_EN | DWT_XTAL_EN); //configure the on wake parameters (upload the IC config settings)
+#else
+					dwt_configuresleep(
+							DWT_LOADUCODE | DWT_PRESRV_SLEEP | DWT_CONFIG | DWT_TANDV,
+							DWT_WAKE_WK | DWT_WAKE_CS | DWT_SLP_EN); //configure the on wake parameters (upload the IC config settings)
 #endif
 #endif
 #endif
@@ -281,8 +281,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 			writetoLCD(16, 1, dataseq); //send some data
 
 			inst->testAppState = TA_TXCALL_WAIT_SEND;
-#if (ENABLE_AUTO_ACK == 1) //NOTE - Auto ACK only works if frame filtering is enabled!			dwt_setrxaftertxdelay(WAIT_FOR_RESPONSE_DLY); //set the RX after TX delay time#endif//NOTE: auto rx re-enable does not stop the rx after sending an ACK in auto ACK mode - so not used here//#if (DECA_BADF_ACCUMULATOR == 0) //can use RX auto re-enable when not logging/plotting errored frames			//inst->rxautoreenable = 1;//#endif		dwt_setautorxreenable(inst->rxautoreenable);			dwt_setdblrxbuffmode(inst->doublebufferon); //enable double RX buffer			dwt_setrxtimeout(0);
-			inst->canprintinfo = 1;
+#if (ENABLE_AUTO_ACK == 1) //NOTE - Auto ACK only works if frame filtering is enabled!			dwt_setrxaftertxdelay(WAIT_FOR_RESPONSE_DLY); //set the RX after TX delay time#endif//NOTE: auto rx re-enable does not stop the rx after sending an ACK in auto ACK mode - so not used here//#if (DECA_BADF_ACCUMULATOR == 0) //can use RX auto re-enable when not logging/plotting errored frames			//inst->rxautoreenable = 1;//#endif		dwt_setautorxreenable(inst->rxautoreenable);			dwt_setdblrxbuffmode(inst->doublebufferon); //enable double RX buffer			dwt_setrxtimeout(0);			inst->canprintinfo = 1;
 
 		}
 			break;
@@ -1151,6 +1150,13 @@ int testapprun_s(instance_data_t *inst, int message) {
 					if (inst->doublebufferon == 1) {
 						dwt_forcetrxoff();
 					}
+
+					dataseq[0] = 0x2;  //return cursor home
+					writetoLCD(1, 0, dataseq);
+					memcpy(&dataseq[0], (const uint8 *) "    POLLING     ", 16);
+					writetoLCD(40, 1, dataseq); //send some data
+					memcpy(&dataseq[0], (const uint8 *) "    ARRIVE      ", 16);
+					writetoLCD(16, 1, dataseq); //send some data
 					inst->testAppState = TA_TXRESPONSE_WAIT_SEND; // send our response
 					inst->canprintinfo = 0;
 
@@ -1671,14 +1677,13 @@ void instance_readaccumulatordata(void) {
 	len = len*4+1;// extra 1 as first byte is dummy due to internal memory access delay
 
 	dwt_readaccdata((uint8*)&(instance_data[instance].buff.accumData->dummy), len, 0);
-#endif  // support_sounding}#endif/* ==========================================================	Notes:	Previously code	handled multiple	instances ina single
-console application
+#endif  // support_sounding}#endif/* ==========================================================	Notes:	Previously code	handled multiple	instances ina single	console application
 
-Now have
-changed it
-to
-do a single
-instance only
+	Now have
+	changed it
+	to
+	do a single
+	instance only
 . With minimal code changes...(i.e. kept [instance] index but it is always 0.
 
 		Windows application should call instance_init() once and then in the "main loop" call instance_run().

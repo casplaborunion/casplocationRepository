@@ -574,7 +574,8 @@ int testapprun_s(instance_data_t *inst, int message) {
 				setupmacframedata(inst, TAG_POLL_MSG_LEN, FRAME_CRTL_AND_ADDRESS_S + FRAME_CRC, RTLS_DEMO_MSG_TAG_POLL, !ACK_REQUESTED);
 #endif
 		//set the delayed rx on time (the response message will be sent after this delay)
-		dwt_setrxaftertxdelay((uint32) inst->fixedReplyDelay_sy); //units are 1.0256us - wait for wait4respTIM before RX on (delay RX)
+		dwt_setrxaftertxdelay(0); //units are 1.0256us - wait for wait4respTIM before RX on (delay RX)
+		//dwt_setrxaftertxdelay((uint32) inst->fixedReplyDelay_sy); //units are 1.0256us - wait for wait4respTIM before RX on (delay RX)
 		dwt_setrxtimeout((uint16) inst->fwtoTime_sy); //units are us - wait for 7ms after RX on (but as using delayed RX this timeout should happen at response time + 7ms)
 
 		dwt_writetxdata(inst->psduLength, (uint8 *) &inst->msg, 0);	// write the frame data

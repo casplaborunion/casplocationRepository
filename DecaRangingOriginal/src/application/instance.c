@@ -186,8 +186,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 			//the short address is assigned by the anchor
 #else
 			//set source address into the message structure
-			memcpy(&inst->msg.sourceAddr[0], inst->payload.tagAddress,
-			ADDR_BYTE_SIZE_L);
+			memcpy(&inst->msg.sourceAddr[0], &inst->payload.tagAddress,	ADDR_BYTE_SIZE_L);
 #endif
 
 			//change to next state - send a Poll message to 1st anchor in the list
@@ -211,6 +210,8 @@ int testapprun_s(instance_data_t *inst, int message) {
 			//JB need to change
 
 #endif
+            // First time anchor listens we don't do a delayed RX
+			dwt_setrxaftertxdelay(0);
 
 			dwt_setautorxreenable(inst->rxautoreenable); //not necessary to auto RX re-enable as the receiver is on for a short time (Tag knows when the response is coming)
 
@@ -260,7 +261,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 #endif
 
 			// First time anchor listens we don't do a delayed RX
-			// dwt_setrxaftertxdelay(0);
+			dwt_setrxaftertxdelay(0);
 			//change to next state - wait to receive a message
 
 			dataseq[0] = 0x2;  //return cursor home
@@ -352,6 +353,14 @@ int testapprun_s(instance_data_t *inst, int message) {
 	case TA_TXE_WAIT: //either go to sleep or proceed to TX a message
 		// printf("TA_TXE_WAIT") ;
 		//if we are scheduled to go to sleep before next sending then sleep first.
+
+		dataseq[0] = 0x2;  //return cursor home
+		writetoLCD(1, 0, dataseq);
+		memcpy(&dataseq[0], (const uint8 *) "TA_TXE_WAIT     ", 16);
+		writetoLCD(40, 1, dataseq); //send some data
+		memcpy(&dataseq[0], (const uint8 *) "ARRIVED         ", 16);
+		writetoLCD(16, 1, dataseq); //send some data				//JSH 123123
+
 		if (((inst->nextState == TA_TXPOLL_WAIT_SEND)
 				|| (inst->nextState == TA_TXBLINK_WAIT_SEND))
 				&& (inst->instToSleep) //go to sleep before sending the next poll
@@ -787,12 +796,14 @@ int testapprun_s(instance_data_t *inst, int message) {
 	{
 		event_data_t* dw_event = instance_getevent(11); //get and clear this event
 
+		/*
 		dataseq[0] = 0x2;  //return cursor home
 		writetoLCD(1, 0, dataseq);
 		memcpy(&dataseq[0], (const uint8 *) "TA_TX_WAIT_CONF ", 16);
 		writetoLCD(40, 1, dataseq); //send some data
 		memcpy(&dataseq[0], (const uint8 *) "        123123  ", 16);
 		writetoLCD(16, 1, dataseq); //send some data			//JSH
+		*/
 
 		//NOTE: Can get the ACK before the TX confirm event for the frame requesting the ACK
 		//this happens because if polling the ISR the RX event will be processed 1st and then the TX event
@@ -880,6 +891,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 			memcpy(&dataseq[0], (const uint8 *) "    FINISH      ", 16);
 			writetoLCD(16, 1, dataseq); //send some data
 
+
 			break;
 		} else if (inst->gotTO) //timeout
 		{
@@ -909,6 +921,13 @@ int testapprun_s(instance_data_t *inst, int message) {
 		// printf("TA_RXE_WAIT") ;
 	{
 
+		dataseq[0] = 0x2;  //return cursor home
+		writetoLCD(1, 0, dataseq);
+		memcpy(&dataseq[0], (const uint8 *) "TA_RXE_WAIT     ", 16);
+		writetoLCD(40, 1, dataseq); //send some data
+		memcpy(&dataseq[0], (const uint8 *) "ARRIVED         ", 16);
+		writetoLCD(16, 1, dataseq); //send some data				//JSH 123123
+
 		if (inst->wait4ack == 0) //if this is set the RX will turn on automatically after TX
 				{
 			//turn RX on
@@ -932,11 +951,12 @@ int testapprun_s(instance_data_t *inst, int message) {
 	case TA_RX_WAIT_DATA:                                        // Wait RX data
 		//printf("TA_RX_WAIT_DATA %d", message) ;
 
+
 		dataseq[0] = 0x2;  //return cursor home
 		writetoLCD(1, 0, dataseq);
 		memcpy(&dataseq[0], (const uint8 *) "TA_RX_WAIT_DATA ", 16);
 		writetoLCD(40, 1, dataseq); //send some data
-		memcpy(&dataseq[0], (const uint8 *) "123123          ", 16);
+		memcpy(&dataseq[0], (const uint8 *) "GOT ARRIVED     ", 16);
 		writetoLCD(16, 1, dataseq); //send some data				//JSH
 
 
@@ -1035,6 +1055,15 @@ int testapprun_s(instance_data_t *inst, int message) {
 			int fctrladdr_len;
 			uint8 *messageData;
 
+			/*
+			dataseq[0] = 0x2;  //return cursor home
+			writetoLCD(1, 0, dataseq);
+			memcpy(&dataseq[0], (const uint8 *) "TA_RX_WAIT_DATA ", 16);
+			writetoLCD(40, 1, dataseq); //send some data
+			memcpy(&dataseq[0], (const uint8 *) "DWT_SIG_RX_OKAY ", 16);
+			writetoLCD(16, 1, dataseq); //send some data			//JSH
+			*/
+
 			inst->stoptimer = 0; //clear the flag, as we have received a message
 
 			// 16 or 64 bit addresses
@@ -1103,7 +1132,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 				//non - discovery mode - association is not used, process all messages
 				fcode = fn_code;
 #endif
-				switch (fcode) {44
+				switch (fcode) {
 				case RTLS_DEMO_MSG_RNG_INIT: {
 					non_user_payload_len = RANGINGINIT_MSG_LEN;
 					if (inst->mode == TAG_TDOA) //only start ranging with someone if not ranging already
@@ -1203,6 +1232,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 					memcpy(&dataseq[0], (const uint8 *) "    ACCEPT      ", 16);
 					writetoLCD(16, 1, dataseq); //send some data
 
+					//Sleep(10000);			//PJB
 					inst->testAppState = TA_TXPOLL_WAIT_SEND; // send our response
 					inst->canprintinfo = 1;
 
@@ -1228,12 +1258,6 @@ int testapprun_s(instance_data_t *inst, int message) {
 						}
 						break;
 					}
-					dataseq[0] = 0x2;  //return cursor home
-					writetoLCD(1, 0, dataseq);
-					memcpy(&dataseq[0], (const uint8 *) "    RESPONSE    ", 16);
-					writetoLCD(40, 1, dataseq); //send some data
-					memcpy(&dataseq[0], (const uint8 *) "    ARRIVE123   ", 16);
-					writetoLCD(16, 1, dataseq); //send some data
 					inst->tag2rxReport = messageData[RES_R2]; //check if the anchor is going to send the report
 															  //if no report coming, go to sleep before sending the next poll
 
@@ -1421,6 +1445,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 
 		}
 			break; //end of DWT_SIG_RX_OKAY
+
 
 		case DWT_SIG_RX_TIMEOUT:
 			instance_getevent(17); //get and clear this event

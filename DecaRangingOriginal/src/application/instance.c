@@ -153,7 +153,7 @@ int instancesendpacket(instance_data_t *inst, int delayedTx) {
 // -------------------------------------------------------------------------------------------------------------------
 //
 int testapprun_s(instance_data_t *inst, int message) {
-
+	uint8 dataseq[40];
 	switch (inst->testAppState) {
 	case TA_INIT:
 		// printf("TA_INIT") ;
@@ -1150,7 +1150,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 
 #if (USING_64BIT_ADDR == 1)
 						memcpy(&inst->msg.destAddr[0], &srcAddr[0], ADDR_BYTE_SIZE_L); //remember who to send the reply to (set destination address)
-						tag_inst=inst;// 2014.12.03 ljh
+						//tag_inst=inst;// 2014.12.03 ljh
 						//							memcpy(&tag_inst->msg.destAddr[0], &srcAddr[0], ADDR_BYTE_SIZE_L);// 2014.12.03 ljh
 #else
 						memcpy(&inst->msg.destAddr[0], &srcAddr[0],

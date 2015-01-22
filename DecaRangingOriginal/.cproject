@@ -40,7 +40,7 @@
 							<option id="ilg.gnuarmeclipse.managedbuild.cross.option.addtools.createflash.1110132695" name="Create flash image" superClass="ilg.gnuarmeclipse.managedbuild.cross.option.addtools.createflash" value="true" valueType="boolean"/>
 							<option id="ilg.gnuarmeclipse.managedbuild.cross.option.addtools.printsize.408200976" name="Print size" superClass="ilg.gnuarmeclipse.managedbuild.cross.option.addtools.printsize" value="true" valueType="boolean"/>
 							<targetPlatform archList="all" binaryParser="org.eclipse.cdt.core.ELF" id="ilg.gnuarmeclipse.managedbuild.cross.targetPlatform.705779988" isAbstract="false" osList="all" superClass="ilg.gnuarmeclipse.managedbuild.cross.targetPlatform"/>
-							<builder buildPath="${workspace_loc:/DecaRangingARMMP_SVN_Latest}/Debug" id="ilg.gnuarmeclipse.managedbuild.cross.builder.1270649350" keepEnvironmentInBuildfile="false" managedBuildOn="true" name="Gnu Make Builder" superClass="ilg.gnuarmeclipse.managedbuild.cross.builder"/>
+							<builder buildPath="${workspace_loc:/DecaRangingOriginal}/Debug" id="cdt.managedbuild.builder.gnu.cross.1838355163" superClass="cdt.managedbuild.builder.gnu.cross"/>
 							<tool id="ilg.gnuarmeclipse.managedbuild.cross.tool.assembler.468282889" name="Cross ARM GNU Assembler" superClass="ilg.gnuarmeclipse.managedbuild.cross.tool.assembler">
 								<option id="ilg.gnuarmeclipse.managedbuild.cross.option.assembler.usepreprocessor.1279950661" name="Use preprocessor" superClass="ilg.gnuarmeclipse.managedbuild.cross.option.assembler.usepreprocessor" value="true" valueType="boolean"/>
 								<inputType id="ilg.gnuarmeclipse.managedbuild.cross.tool.assembler.input.615840284" superClass="ilg.gnuarmeclipse.managedbuild.cross.tool.assembler.input"/>
@@ -48,6 +48,12 @@
 							<tool id="ilg.gnuarmeclipse.managedbuild.cross.tool.c.compiler.981916602" name="Cross ARM C Compiler" superClass="ilg.gnuarmeclipse.managedbuild.cross.tool.c.compiler">
 								<option id="ilg.gnuarmeclipse.managedbuild.cross.option.c.compiler.include.paths.172679479" name="Include paths (-I)" superClass="ilg.gnuarmeclipse.managedbuild.cross.option.c.compiler.include.paths" useByScannerDiscovery="false" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Libraries/STM32_USB_OTG_Driver/inc}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;C:\SPB_Data\git\casplocationRepository\DecaRangingOriginal\src\application&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;C:\SPB_Data\git\casplocationRepository\DecaRangingOriginal\src\decadriver&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;C:\SPB_Data\git\casplocationRepository\DecaRangingOriginal\src\usb&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;C:\SPB_Data\git\casplocationRepository\DecaRangingOriginal\src\platform&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;C:\SPB_Data\git\casplocationRepository\DecaRangingOriginal\src\sys&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;C:\SPB_Data\git\casplocationRepository\DecaRangingOriginal\src\compiler&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Libraries/STM32_USB_Device_Library/Class/audio/inc}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Libraries/STM32_USB_Device_Library/Class/cdc/inc}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Libraries/STM32_USB_Device_Library/Class/dfu/inc}&quot;"/>
@@ -105,6 +111,7 @@
 				</configuration>
 			</storageModule>
 			<storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+			<storageModule moduleId="ilg.gnuarmeclipse.managedbuild.packs"/>
 		</cconfiguration>
 		<cconfiguration id="ilg.gnuarmeclipse.managedbuild.cross.config.elf.release.222994735">
 			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="ilg.gnuarmeclipse.managedbuild.cross.config.elf.release.222994735" moduleId="org.eclipse.cdt.core.settings" name="Release">

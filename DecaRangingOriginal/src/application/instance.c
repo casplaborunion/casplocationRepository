@@ -551,8 +551,8 @@ case TA_TXCALL_WAIT_SEND: {
 			!ACK_REQUESTED);
 #endif
 	//set the delayed rx on time (the response message will be sent after this delay)
-	dwt_setrxaftertxdelay(0); //units are 1.0256us - wait for wait4respTIM before RX on (delay RX)
-	//dwt_setrxaftertxdelay((uint32) inst->fixedReplyDelay_sy); //units are 1.0256us - wait for wait4respTIM before RX on (delay RX)
+	//dwt_setrxaftertxdelay(0); //units are 1.0256us - wait for wait4respTIM before RX on (delay RX)
+	dwt_setrxaftertxdelay((uint32) inst->fixedReplyDelay_sy); //units are 1.0256us - wait for wait4respTIM before RX on (delay RX)
 	dwt_setrxtimeout((uint16) inst->fwtoTime_sy); //units are us - wait for 7ms after RX on (but as using delayed RX this timeout should happen at response time + 7ms)
 
 	dwt_writetxdata(inst->psduLength, (uint8 *) &inst->msg, 0);	// write the frame data
@@ -837,7 +837,7 @@ case TA_TX_CALL_WAIT_CONF:
 	//printf("TA_TX_WAIT_CONF %d m%d %d states %08x %08x\n", inst->previousState, message, inst->newReportSent, dwt_read32bitreg(0x19), dwt_read32bitreg(0x0f)) ;
 
 {
-	event_data_t* dw_event = instance_getevent(19); //get and clear this event
+	event_data_t* dw_event = instance_getevent(11); //get and clear this event
 
 	//NOTE: Can get the ACK before the TX confirm event for the frame requesting the ACK
 	//this happens because if polling the ISR the RX event will be processed 1st and then the TX event
@@ -871,6 +871,7 @@ case TA_TX_CALL_WAIT_CONF:
 		writetoLCD(40, 1, dataseq); //send some data
 		memcpy(&dataseq[0], (const uint8 *) "    FINISH      ", 16);
 		writetoLCD(16, 1, dataseq); //send some data
+		message = 0;
 
 		break;
 	} else if (inst->gotTO) //timeout
@@ -913,12 +914,7 @@ case TA_RXE_WAIT:
 		if (inst->previousState != TA_TXREPORT_WAIT_SEND) //we are going to use anchor timeout and re-send the report
 			inst->done = INST_DONE_WAIT_FOR_NEXT_EVENT; //using RX FWTO
 	}
-	dataseq[0] = 0x2;  //return cursor home
-	writetoLCD(1, 0, dataseq);
-	memcpy(&dataseq[0], (const uint8 *) "    RECEIVER    ", 16);
-	writetoLCD(40, 1, dataseq); //send some data
-	memcpy(&dataseq[0], (const uint8 *) "       ON       ", 16);
-	writetoLCD(16, 1, dataseq); //send some data
+
 	inst->testAppState = TA_RX_WAIT_DATA;   // let this state handle it
 
 	// end case TA_RXE_WAIT, don't break, but fall through into the TA_RX_WAIT_DATA state to process it immediately.
@@ -1460,7 +1456,7 @@ case TA_CALL_WAIT_DATA:                                        // Wait RX data
 
 	//if we have received a DWT_SIG_RX_OKAY event - this means that the message is IEEE data type - need to check frame control to know which addressing mode is used
 	{
-		event_data_t* dw_event = instance_getevent(20); //get and clear this event
+		event_data_t* dw_event = instance_getevent(12); //get and clear this event
 		uint8 srcAddr[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 		int non_user_payload_len = 0;
 		int uplen = 0;

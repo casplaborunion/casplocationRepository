@@ -530,7 +530,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 		writetoLCD(1, 0, dataseq);
 		memcpy(&dataseq[0], (const uint8 *) "    POLLING     ", 16);
 		writetoLCD(40, 1, dataseq); //send some data
-		memcpy(&dataseq[0], (const uint8 *) "    SEND END    ", 16);
+		memcpy(&dataseq[0], (const uint8 *) "    SEND END    ", 16);	//polling send end
 		writetoLCD(16, 1, dataseq); //send some data
 
 		inst->testAppState = TA_TX_WAIT_CONF;               // wait confirmation
@@ -585,7 +585,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 		writetoLCD(1, 0, dataseq);
 		memcpy(&dataseq[0], (const uint8 *) "    CALLING     ", 16);
 		writetoLCD(40, 1, dataseq); //send some data
-		memcpy(&dataseq[0], (const uint8 *) "    SEND END    ", 16);
+		memcpy(&dataseq[0], (const uint8 *) "    SEND END    ", 16);	//calling send end
 		writetoLCD(16, 1, dataseq); //send some data
 
 		inst->testAppState = TA_TX_CALL_WAIT_CONF;          // wait confirmation
@@ -621,7 +621,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 		writetoLCD(1, 0, dataseq);
 		memcpy(&dataseq[0], (const uint8 *) "    RESPONSE    ", 16);
 		writetoLCD(40, 1, dataseq); //send some data
-		memcpy(&dataseq[0], (const uint8 *) "    SEND END    ", 16);
+		memcpy(&dataseq[0], (const uint8 *) "    SEND END    ", 16);	//response send end
 		writetoLCD(16, 1, dataseq); //send some data
 		inst->testAppState = TA_TX_WAIT_CONF;               // wait confirmation
 		inst->previousState = TA_TXRESPONSE_WAIT_SEND;
@@ -775,7 +775,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 		writetoLCD(1, 0, dataseq);
 		memcpy(&dataseq[0], (const uint8 *) "    REPORT      ", 16);
 		writetoLCD(40, 1, dataseq); //send some data
-		memcpy(&dataseq[0], (const uint8 *) "    SEND END    ", 16);
+		memcpy(&dataseq[0], (const uint8 *) "    SEND END    ", 16);	//report send end
 		writetoLCD(16, 1, dataseq); //send some data
 
 		inst->sentSN = inst->msg.seqNum;
@@ -920,13 +920,14 @@ int testapprun_s(instance_data_t *inst, int message) {
 	case TA_RXE_WAIT:
 		// printf("TA_RXE_WAIT") ;
 	{
-
+/*
 		dataseq[0] = 0x2;  //return cursor home
 		writetoLCD(1, 0, dataseq);
 		memcpy(&dataseq[0], (const uint8 *) "TA_RXE_WAIT     ", 16);
 		writetoLCD(40, 1, dataseq); //send some data
 		memcpy(&dataseq[0], (const uint8 *) "ARRIVED         ", 16);
 		writetoLCD(16, 1, dataseq); //send some data				//JSH 123123
+		*/
 
 		if (inst->wait4ack == 0) //if this is set the RX will turn on automatically after TX
 				{
@@ -951,13 +952,14 @@ int testapprun_s(instance_data_t *inst, int message) {
 	case TA_RX_WAIT_DATA:                                        // Wait RX data
 		//printf("TA_RX_WAIT_DATA %d", message) ;
 
-
+/*
 		dataseq[0] = 0x2;  //return cursor home
 		writetoLCD(1, 0, dataseq);
 		memcpy(&dataseq[0], (const uint8 *) "TA_RX_WAIT_DATA ", 16);
 		writetoLCD(40, 1, dataseq); //send some data
 		memcpy(&dataseq[0], (const uint8 *) "GOT ARRIVED     ", 16);
 		writetoLCD(16, 1, dataseq); //send some data				//JSH
+		*/
 
 
 		switch (message) {

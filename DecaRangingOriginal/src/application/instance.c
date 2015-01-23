@@ -1372,7 +1372,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 
 		return inst->done;
 	} // end testapprun()
-
+}
 // -------------------------------------------------------------------------------------------------------------------
 #if NUM_INST != 1
 #error These functions assume one instance only

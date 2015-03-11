@@ -21,13 +21,8 @@
 // -------------------------------------------------------------------------------------------------------------------
 
 //application data message byte offsets
-#define FCODE                               0               // Function code is 1st byte of messageData#define PTXT                                1#define RRXT                                6#define FTXT                                11#define TOFR                                1#define RES_R1                              1               // Response option octet 0x02 (1),#define RES_R2                              2               // Response option paramter 0x00 (1) - used to notify Tag that the report is coming#define RES_R3                              3               // Response option paramter 0x00 (1),#define RES_T1                              3               // Ranging request response delay low byte#define RES_T2                              4               // Ranging request response delay high byte#define POLL_TEMP                           1               // Poll message TEMP octet#define POLL_VOLT                           2               // Poll message Voltage octet// -------------------------------------------------------------------------------------------------------------------//      Data Definitions// -------------------------------------------------------------------------------------------------------------------// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!// NOTE: the maximum RX timeout is ~ 65ms// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!// -------------------------------------------------------------------------------------------------------------------// Functions// -------------------------------------------------------------------------------------------------------------------// -------------------------------------------------------------------------------------------------------------------//// function to construct the message/frame header bytes//// -------------------------------------------------------------------------------------------------------------------
-//
-void instanceconfigframeheader(instance_data_t *inst, int ackrequest) {
-	inst->msg.panID[0] = (inst->panid) & 0xff;
-	inst->msg.panID[1] = inst->panid >> 8;
-
-	//set frame type (0-2), SEC (3), Pending (4), ACK (5), PanIDcomp(6)
+#define FCODE                               0               // Function code is 1st byte of messageData#define PTXT                                1#define RRXT                                6#define FTXT                                11#define TOFR                                1#define RES_R1                              1               // Response option octet 0x02 (1),#define RES_R2                              2               // Response option paramter 0x00 (1) - used to notify Tag that the report is coming#define RES_R3                              3               // Response option paramter 0x00 (1),#define RES_T1                              3               // Ranging request response delay low byte#define RES_T2                              4               // Ranging request response delay high byte#define POLL_TEMP                           1               // Poll message TEMP octet#define POLL_VOLT                           2               // Poll message Voltage octet// -------------------------------------------------------------------------------------------------------------------//      Data Definitions// -------------------------------------------------------------------------------------------------------------------// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!// NOTE: the maximum RX timeout is ~ 65ms// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!// -------------------------------------------------------------------------------------------------------------------// Functions// -------------------------------------------------------------------------------------------------------------------// -------------------------------------------------------------------------------------------------------------------//// function to construct the message/frame header bytes//// -------------------------------------------------------------------------------------------------------------------//void instanceconfigframeheader(instance_data_t *inst, int ackrequest) {	inst->msg.panID[0] = (inst->panid) & 0xff;	inst->msg.panID[1] = inst->panid >> 8;
+//set frame type (0-2), SEC (3), Pending (4), ACK (5), PanIDcomp(6)
 	inst->msg.frameCtrl[0] = 0x1 /*frame type 0x1 == data*/| 0x40 /*PID comp*/;
 	inst->msg.frameCtrl[0] |= (ackrequest ? 0x20 : 0x00);
 #if (USING_64BIT_ADDR==1)
@@ -80,7 +75,35 @@ int destaddress(instance_data_t *inst) {
 
 int tagcalladdress(instance_data_t *inst) {
 
-	if ((inst->tagListIndex) < 5) {
+	for (inst->checkListIndex; inst->checkListIndex < CALL_MAX;
+			inst->checkListIndex++) {
+		if (CHECK_FLAG[inst->checkListIndex] == 1) {
+			memcpy(&inst->msg.destAddr[0],
+					&inst->payload.tagAddressList[inst->checkListIndex],
+					ADDR_BYTE_SIZE_L);
+			break;
+		}
+	}
+
+	inst->checkListIndex++;
+
+	if ((inst->checkListIndex) == CALL_MAX) {
+		inst->checkListIndex = 0;
+	}
+
+	inst->instToSleep = 0; //we'll sleep after this call
+
+	return 0;
+}
+/*
+ * anchor1 set destination address for calling tag.
+ * this function need instance_tagaddr, tagAddressList
+ * 2015.03.05 JSH tagcalladdress
+ */
+
+int tagcheckaddress(instance_data_t *inst) {
+
+	if ((inst->tagListIndex) < CHECK_MAX) {
 		memcpy(&inst->msg.destAddr[0],
 				&inst->payload.tagAddressList[inst->tagListIndex],
 				ADDR_BYTE_SIZE_L);
@@ -88,20 +111,19 @@ int tagcalladdress(instance_data_t *inst) {
 
 	inst->tagListIndex++;
 
-	if ((inst->tagListIndex) == 5) {
+	if ((inst->tagListIndex) == CHECK_MAX) {
 		inst->tagListIndex = 0;
 	}
 
-	//if we got this far means that we are just about to poll the last anchor in the list
-	inst->instToSleep = 0; //we'll sleep after this poll
+	inst->instToSleep = 0; //we'll sleep after this check
 
 	return 0;
 }
 /*
- * anchor1 set destination address for calling tag.
- * this function need instance_tagaddr, tagAddressList
- * 2015.01.17 JB
+ * master anchor set destination address for checking tag.
+ * 2015.03.05 JSH tagcheckaddress
  */
+
 #endif
 
 // -------------------------------------------------------------------------------------------------------------------
@@ -175,55 +197,73 @@ int testapprun_s(instance_data_t *inst, int message) {
 	case TA_INIT:
 		// printf("TA_INIT") ;
 		switch (inst->mode) {
-		case TAG: {
-			uint8 eui64[8];
-			dwt_enableframefilter(DWT_FF_DATA_EN | DWT_FF_ACK_EN); //allow data, ack frames;
-			inst->frameFilteringEnabled = 1;
-			memcpy(eui64, &inst->payload.tagAddress, sizeof(uint64));
-			dwt_setpanid(inst->panid);
-			dwt_seteui(inst->eui64);
-#if (USING_64BIT_ADDR==0)
-			//the short address is assigned by the anchor
-#else
-			//set source address into the message structure
-			memcpy(&inst->msg.sourceAddr[0], &inst->payload.tagAddress,	ADDR_BYTE_SIZE_L);
-#endif
+		/*
+		 case TAG: {
+		 uint8 eui64[8];
+		 dwt_enableframefilter(DWT_FF_DATA_EN | DWT_FF_ACK_EN); //allow data, ack frames;
+		 inst->frameFilteringEnabled = 1;
+		 memcpy(eui64, &inst->payload.tagAddress, sizeof(uint64));
+		 dwt_setpanid(inst->panid);
+		 dwt_seteui(inst->eui64);
+		 #if (USING_64BIT_ADDR==0)
+		 //the short address is assigned by the anchor
+		 #else
+		 //set source address into the message structure
+		 memcpy(&inst->msg.sourceAddr[0], &inst->payload.tagAddress,	ADDR_BYTE_SIZE_L);
+		 #endif
 
-			//change to next state - send a Poll message to 1st anchor in the list
-#if (DR_DISCOVERY == 1)
-			inst->mode = TAG_TDOA;
-			inst->testAppState = TA_TXBLINK_WAIT_SEND;
-			memcpy(inst->blinkmsg.tagID, inst->eui64, ADDR_BYTE_SIZE_L);
-#else
-			///////////////////////////////////////////////////////////////////////////////////////////////////////////
-			dwt_setrxaftertxdelay(0);          /// added by REN 01.16
+		 //change to next state - send a Poll message to 1st anchor in the list
+		 #if (DR_DISCOVERY == 1)
+		 inst->mode = TAG_TDOA;
+		 inst->testAppState = TA_TXBLINK_WAIT_SEND;
+		 memcpy(inst->blinkmsg.tagID, inst->eui64, ADDR_BYTE_SIZE_L);
+		 #else
+		 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+		 dwt_setrxaftertxdelay(0);          /// added by REN 01.16
 
-			dataseq[0] = 0x2;  //return cursor home
-			writetoLCD(1, 0, dataseq);
-			memcpy(&dataseq[0], (const uint8 *) "    INITIAL     ", 16);
-			writetoLCD(40, 1, dataseq); //send some data
-			memcpy(&dataseq[0], (const uint8 *) "    FINISH      ", 16);
-			writetoLCD(16, 1, dataseq); //send some data
+		 dataseq[0] = 0x2;  //return cursor home
+		 writetoLCD(1, 0, dataseq);
+		 memcpy(&dataseq[0], (const uint8 *) "    INITIAL     ", 16);
+		 writetoLCD(40, 1, dataseq); //send some data
+		 memcpy(&dataseq[0], (const uint8 *) "    FINISH      ", 16);
+		 writetoLCD(16, 1, dataseq); //send some data
 
-			inst->testAppState = TA_RXE_WAIT; /// TA_TXPOLL_WAIT_SEND -> TA_RXE_WAIT   REN 01.16
+		 inst->testAppState = TA_RXE_WAIT; /// TA_TXPOLL_WAIT_SEND -> TA_RXE_WAIT   REN 01.16
 
-			//JB need to change
+		 //JB need to change
 
-#endif
-            // First time anchor listens we don't do a delayed RX
-			dwt_setrxaftertxdelay(0);
+		 #endif
+		 // First time anchor listens we don't do a delayed RX
+		 dwt_setrxaftertxdelay(0);
 
-			dwt_setautorxreenable(inst->rxautoreenable); //not necessary to auto RX re-enable as the receiver is on for a short time (Tag knows when the response is coming)
+		 dwt_setautorxreenable(inst->rxautoreenable); //not necessary to auto RX re-enable as the receiver is on for a short time (Tag knows when the response is coming)
 
-			dwt_setdblrxbuffmode(inst->doublebufferon); //disable double RX buffer
+		 dwt_setdblrxbuffmode(inst->doublebufferon); //disable double RX buffer
 
-#if (ENABLE_AUTO_ACK == 1) //NOTE - Auto ACK only works if frame filtering is enabled!			dwt_enableautoack(ACK_RESPONSE_TIME); //wait for ACK_RESPONSE_TIME symbols (e.g. 5) before replying with the ACK#endif#if (DEEP_SLEEP == 1)#if (DEEP_SLEEP_AUTOWAKEUP == 1)			dwt_configuresleep(			DWT_LOADUCODE | DWT_PRESRV_SLEEP | DWT_CONFIG | DWT_TANDV,			DWT_WAKE_SLPCNT | DWT_WAKE_CS | DWT_SLP_EN		); //configure the on wake parameters (upload the IC config settings)#else			//NOTE: on the EVK1000 the DEEPSLEEP is not actually putting the DW1000 into full DEEPSLEEP mode as XTAL is kept on#if (DEEP_SLEEP_XTAL_ON == 1)			dwt_configuresleep(			DWT_LOADUCODE | DWT_PRESRV_SLEEP | DWT_CONFIG | DWT_TANDV,			DWT_WAKE_CS | DWT_SLP_EN | DWT_XTAL_EN); //configure the on wake parameters (upload the IC config settings)#else			dwt_configuresleep(			DWT_LOADUCODE | DWT_PRESRV_SLEEP | DWT_CONFIG | DWT_TANDV,
-			DWT_WAKE_WK | DWT_WAKE_CS | DWT_SLP_EN); //configure the on wake parameters (upload the IC config settings)
-#endif
-#endif
-#endif
-		}
-			break;
+		 #if (ENABLE_AUTO_ACK == 1) //NOTE - Auto ACK only works if frame filtering is enabled!
+		 dwt_enableautoack(ACK_RESPONSE_TIME); //wait for ACK_RESPONSE_TIME symbols (e.g. 5) before replying with the ACK
+		 endif
+		 if (DEEP_SLEEP == 1)
+		 if (DEEP_SLEEP_AUTOWAKEUP == 1)
+		 dwt_configuresleep(
+		 DWT_LOADUCODE | DWT_PRESRV_SLEEP | DWT_CONFIG | DWT_TANDV,
+		 DWT_WAKE_SLPCNT | DWT_WAKE_CS | DWT_SLP_EN
+		 ); //configure the on wake parameters (upload the IC config settings)
+		 else
+		 //NOTE: on the EVK1000 the DEEPSLEEP is not actually putting the DW1000 into full DEEPSLEEP mode as XTAL is kept on
+		 if (DEEP_SLEEP_XTAL_ON == 1)
+		 dwt_configuresleep(
+		 DWT_LOADUCODE | DWT_PRESRV_SLEEP | DWT_CONFIG | DWT_TANDV,
+		 DWT_WAKE_CS | DWT_SLP_EN | DWT_XTAL_EN); //configure the on wake parameters (upload the IC config settings)
+		 else
+		 dwt_configuresleep(
+		 DWT_LOADUCODE | DWT_PRESRV_SLEEP | DWT_CONFIG | DWT_TANDV,
+		 DWT_WAKE_WK | DWT_WAKE_CS | DWT_SLP_EN); //configure the on wake parameters (upload the IC config settings)
+		 #endif
+		 #endif
+		 #endif
+		 }
+		 break;*/
 		case ANCHOR: {
 #if (DR_DISCOVERY == 0)
 			uint8 eui64[8];
@@ -264,6 +304,12 @@ int testapprun_s(instance_data_t *inst, int message) {
 			dwt_setrxaftertxdelay(0);
 			//change to next state - wait to receive a message
 
+			inst->checkListIndex = 0;
+			inst->tagListIndex = 0;
+			for (int k = 1; k < CHECK_MAX; k++) {
+				CHECK_FLAG[k] = 0;
+			} //2015.03.05 JSH Initialize checkListIndex, tagListIndex, CHECK_FLAG
+
 			dataseq[0] = 0x2;  //return cursor home
 			writetoLCD(1, 0, dataseq);
 			memcpy(&dataseq[0], (const uint8 *) "    INITIAL     ", 16);
@@ -271,28 +317,29 @@ int testapprun_s(instance_data_t *inst, int message) {
 			memcpy(&dataseq[0], (const uint8 *) "    FINISH      ", 16);
 			writetoLCD(16, 1, dataseq); //send some data
 
-			inst->testAppState = TA_TXCALL_WAIT_SEND;
-#if (ENABLE_AUTO_ACK == 1) //NOTE - Auto ACK only works if frame filtering is enabled!			dwt_setrxaftertxdelay(WAIT_FOR_RESPONSE_DLY); //set the RX after TX delay time#endif//NOTE: auto rx re-enable does not stop the rx after sending an ACK in auto ACK mode - so not used here//#if (DECA_BADF_ACCUMULATOR == 0) //can use RX auto re-enable when not logging/plotting errored frames			//inst->rxautoreenable = 1;//#endif		dwt_setautorxreenable(inst->rxautoreenable);			dwt_setdblrxbuffmode(inst->doublebufferon); //enable double RX buffer			dwt_setrxtimeout(0);			inst->canprintinfo = 1;		}			break;		case LISTENER: {			dwt_enableframefilter(DWT_FF_NOTYPE_EN); //disable frame filtering
-			inst->frameFilteringEnabled = 0;
-			// First time anchor listens we don't do a delayed RX
-			dwt_setrxaftertxdelay(0);
-			//change to next state - wait to receive a message
-			inst->testAppState = TA_RXE_WAIT;
+			//inst->testAppState = TA_TXCALL_WAIT_SEND;
+			inst->testAppState = TA_TXCHECK_WAIT_SEND;
+#if (ENABLE_AUTO_ACK == 1) //NOTE - Auto ACK only works if frame filtering is enabled!			dwt_setrxaftertxdelay(WAIT_FOR_RESPONSE_DLY); //set the RX after TX delay time#endif//NOTE: auto rx re-enable does not stop the rx after sending an ACK in auto ACK mode - so not used here//#if (DECA_BADF_ACCUMULATOR == 0) //can use RX auto re-enable when not logging/plotting errored frames			//inst->rxautoreenable = 1;//#endif		dwt_setautorxreenable(inst->rxautoreenable);			dwt_setdblrxbuffmode(inst->doublebufferon); //enable double RX buffer			dwt_setrxtimeout(0);			inst->canprintinfo = 1;		}			break;			/*		case LISTENER: {		dwt_enableframefilter(DWT_FF_NOTYPE_EN); //disable frame filtering		inst->frameFilteringEnabled = 0;
+		// First time anchor listens we don't do a delayed RX
+		dwt_setrxaftertxdelay(0);
+		//change to next state - wait to receive a message
+		inst->testAppState = TA_RXE_WAIT;
 
-//NOTE: auto rx re-enable does not stop the rx after sending an ACK in auto ACK mode - so not used here
-//#if (DECA_BADF_ACCUMULATOR == 0) //can use RX auto re-enable when not logging/plotting errored frames
-			//inst->rxautoreenable = 1;
-//#endif
-			dwt_setautorxreenable(inst->rxautoreenable);
+		//NOTE: auto rx re-enable does not stop the rx after sending an ACK in auto ACK mode - so not used here
+		//#if (DECA_BADF_ACCUMULATOR == 0) //can use RX auto re-enable when not logging/plotting errored frames
+		//inst->rxautoreenable = 1;
+		//#endif
+		dwt_setautorxreenable(inst->rxautoreenable);
 
-			dwt_setdblrxbuffmode(inst->doublebufferon); //enable double RX buffer
+		dwt_setdblrxbuffmode(inst->doublebufferon);//enable double RX buffer
 
-			dwt_setrxtimeout(0);
+		dwt_setrxtimeout(0);
 
-		}
-			break; // end case TA_INIT
-		default:
-			break;
+	}
+	break; // end case TA_INIT
+	*/
+	default:
+		break;
 		}
 		break; // end case TA_INIT
 
@@ -530,7 +577,7 @@ int testapprun_s(instance_data_t *inst, int message) {
 		writetoLCD(1, 0, dataseq);
 		memcpy(&dataseq[0], (const uint8 *) "    POLLING     ", 16);
 		writetoLCD(40, 1, dataseq); //send some data
-		memcpy(&dataseq[0], (const uint8 *) "    SEND END    ", 16);	//polling send end
+		memcpy(&dataseq[0], (const uint8 *) "    SEND END    ", 16); //polling send end
 		writetoLCD(16, 1, dataseq); //send some data
 
 		inst->testAppState = TA_TX_WAIT_CONF;               // wait confirmation
@@ -563,8 +610,11 @@ int testapprun_s(instance_data_t *inst, int message) {
 		setupmacframedata(inst, TAG_POLL_MSG_LEN,
 		FRAME_CRTL_AND_ADDRESS_L + FRAME_CRC, RTLS_DEMO_MSG_ANCHOR_CALL,
 				!ACK_REQUESTED); // 2015.01.17 JB
+		/*setupmacframedata(inst, TAG_POLL_MSG_LEN,
+		 FRAME_CRTL_AND_ADDRESS_L + FRAME_CRC, RTLS_DEMO_MSG_ANCHOR_CALL,
+		 ACK_REQUESTED); // 2015.02.10 JSH*/
 #else
-				setupmacframedata(inst, TAG_POLL_MSG_LEN, FRAME_CRTL_AND_ADDRESS_S + FRAME_CRC, RTLS_DEMO_MSG_TAG_POLL, !ACK_REQUESTED);
+		setupmacframedata(inst, TAG_POLL_MSG_LEN, FRAME_CRTL_AND_ADDRESS_S + FRAME_CRC, RTLS_DEMO_MSG_TAG_POLL, !ACK_REQUESTED);
 #endif
 		//set the delayed rx on time (the response message will be sent after this delay)
 		dwt_setrxaftertxdelay(0); //units are 1.0256us - wait for wait4respTIM before RX on (delay RX)
@@ -581,11 +631,13 @@ int testapprun_s(instance_data_t *inst, int message) {
 		dwt_starttx(DWT_START_TX_IMMEDIATE | inst->wait4ack);
 		inst->sentSN = inst->msg.seqNum;
 
+		inst->sessionIndex++;
+
 		dataseq[0] = 0x2;  //return cursor home
 		writetoLCD(1, 0, dataseq);
 		memcpy(&dataseq[0], (const uint8 *) "    CALLING     ", 16);
 		writetoLCD(40, 1, dataseq); //send some data
-		memcpy(&dataseq[0], (const uint8 *) "    SEND END    ", 16);	//calling send end
+		memcpy(&dataseq[0], (const uint8 *) "    SEND END    ", 16); //calling send end
 		writetoLCD(16, 1, dataseq); //send some data
 
 		inst->testAppState = TA_TX_CALL_WAIT_CONF;          // wait confirmation
@@ -595,262 +647,324 @@ int testapprun_s(instance_data_t *inst, int message) {
 	}
 		break;
 
+	case TA_TXCHECK_WAIT_SEND: {
+
+#if (DR_DISCOVERY == 1)
+		//NOTE the anchor address is set after receiving the ranging initialisation message
+		inst->instToSleep = 1;//go to Sleep after this poll
+#else
+		//set destination address
+		if (tagcheckaddress(inst)) {
+			break;
+		}
+#endif
+#if (PUT_TEMP_VOLTAGE_INTO_POLL == 1)
+		{
+			inst->msg.messageData[POLL_TEMP] = dwt_readwakeuptemp(); // Temperature value set sampled at wakeup
+			inst->msg.messageData[POLL_VOLT] = dwt_readwakeupvbat();// (Battery) Voltage value set sampled at wakeup
+		}
+#else
+		inst->msg.messageData[POLL_TEMP] = inst->msg.messageData[POLL_VOLT] = 0;
+#endif
+#if (USING_64BIT_ADDR==1)
+		if ((inst->checkListIndex == 0) && (inst->tagListIndex == 0)) {
+			for (int k = 1; k < CHECK_MAX; k++) {
+				CHECK_FLAG[k] = 0;
+			}
+		} //2015.03.05 JSH CHECK_FLAG initialize at new CHECK session
+		setupmacframedata(inst, TAG_POLL_MSG_LEN,
+		FRAME_CRTL_AND_ADDRESS_L + FRAME_CRC, RTLS_DEMO_MSG_ANCHOR_CHECK,
+				!ACK_REQUESTED);
+#else
+		setupmacframedata(inst, TAG_POLL_MSG_LEN, FRAME_CRTL_AND_ADDRESS_S + FRAME_CRC, RTLS_DEMO_MSG_TAG_POLL, !ACK_REQUESTED);
+#endif
+		//set the delayed rx on time (the response message will be sent after this delay)
+		dwt_setrxaftertxdelay(0); //units are 1.0256us - wait for wait4respTIM before RX on (delay RX)
+		//dwt_setrxaftertxdelay((uint32) inst->fixedReplyDelay_sy); //units are 1.0256us - wait for wait4respTIM before RX on (delay RX)
+		dwt_setrxtimeout((uint16) inst->fwtoTime_sy); //units are us - wait for 7ms after RX on (but as using delayed RX this timeout should happen at response time + 7ms)
+
+		dwt_writetxdata(inst->psduLength, (uint8 *) &inst->msg, 0);	// write the frame data
+
+		//response is expected
+		inst->wait4ack = DWT_RESPONSE_EXPECTED;
+
+		dwt_writetxfctrl(inst->psduLength, 0);
+
+		dwt_starttx(DWT_START_TX_IMMEDIATE | inst->wait4ack);
+		inst->sentSN = inst->msg.seqNum;
+
+		inst->checkIndex++;
+
+		dataseq[0] = 0x2;  //return cursor home
+		writetoLCD(1, 0, dataseq);
+		memcpy(&dataseq[0], (const uint8 *) "    CHECK       ", 16);
+		writetoLCD(40, 1, dataseq); //send some data
+		memcpy(&dataseq[0], (const uint8 *) "    SEND END    ", 16); //calling send end
+		writetoLCD(16, 1, dataseq); //send some data
+
+		inst->testAppState = TA_TX_CHECK_WAIT_CONF;         // wait confirmation
+		inst->previousState = TA_TXCHECK_WAIT_SEND;
+		inst->done = INST_DONE_WAIT_FOR_NEXT_EVENT; //will use RX FWTO to time out (set below)
+
+	}	//2015.03.05 JSH TA_TXCHECK_WAIT_SEND
+		break;
+
 		/*
 		 * 50% complete
 		 * need to change poll message
 		 * 2015.01.17 JB
 		 */
 
-	case TA_TXRESPONSE_WAIT_SEND: {
-		//printf("TA_TXRESPONSE\n") ;
+		/*case TA_TXRESPONSE_WAIT_SEND: {
+		 //printf("TA_TXRESPONSE\n") ;
 
-		//program option octet and parameters (not used currently)
-		inst->msg.messageData[RES_R1] = 0x2; // "activity"
-		inst->msg.messageData[RES_R2] = inst->sendTOFR2Tag; //0x0; (this tells the Tag that the ToF report will be sent to it)
-		inst->msg.messageData[RES_R3] = 0x0;
+		 //program option octet and parameters (not used currently)
+		 inst->msg.messageData[RES_R1] = 0x2; // "activity"
+		 inst->msg.messageData[RES_R2] = inst->sendTOFR2Tag; //0x0; (this tells the Tag that the ToF report will be sent to it)
+		 inst->msg.messageData[RES_R3] = 0x0;
 
-#if (USING_64BIT_ADDR==1)
-		setupmacframedata(inst, ANCH_RESPONSE_MSG_LEN,
-		FRAME_CRTL_AND_ADDRESS_L + FRAME_CRC, RTLS_DEMO_MSG_ANCH_RESP,
-				!ACK_REQUESTED);
-#else
-		setupmacframedata(inst, ANCH_RESPONSE_MSG_LEN, FRAME_CRTL_AND_ADDRESS_S + FRAME_CRC, RTLS_DEMO_MSG_ANCH_RESP, !ACK_REQUESTED);
-#endif
+		 #if (USING_64BIT_ADDR==1)
+		 setupmacframedata(inst, ANCH_RESPONSE_MSG_LEN,
+		 FRAME_CRTL_AND_ADDRESS_L + FRAME_CRC, RTLS_DEMO_MSG_ANCH_RESP,
+		 !ACK_REQUESTED);
+		 #else
+		 setupmacframedata(inst, ANCH_RESPONSE_MSG_LEN, FRAME_CRTL_AND_ADDRESS_S + FRAME_CRC, RTLS_DEMO_MSG_ANCH_RESP, !ACK_REQUESTED);
+		 #endif
 
-		dataseq[0] = 0x2;  //return cursor home
-		writetoLCD(1, 0, dataseq);
-		memcpy(&dataseq[0], (const uint8 *) "    RESPONSE    ", 16);
-		writetoLCD(40, 1, dataseq); //send some data
-		memcpy(&dataseq[0], (const uint8 *) "    SEND END    ", 16);	//response send end
-		writetoLCD(16, 1, dataseq); //send some data
-		inst->testAppState = TA_TX_WAIT_CONF;               // wait confirmation
-		inst->previousState = TA_TXRESPONSE_WAIT_SEND;
+		 dataseq[0] = 0x2;  //return cursor home
+		 writetoLCD(1, 0, dataseq);
+		 memcpy(&dataseq[0], (const uint8 *) "    RESPONSE    ", 16);
+		 writetoLCD(40, 1, dataseq); //send some data
+		 memcpy(&dataseq[0], (const uint8 *) "    SEND END    ", 16);	//response send end
+		 writetoLCD(16, 1, dataseq); //send some data
+		 inst->testAppState = TA_TX_WAIT_CONF;               // wait confirmation
+		 inst->previousState = TA_TXRESPONSE_WAIT_SEND;
 
-		//set the delayed rx on time (the final message will be sent after this delay)
-		dwt_setrxaftertxdelay((uint32) inst->fixedReplyDelay_sy); //units are 1.0256us - wait for wait4respTIM before RX on (delay RX)
+		 //set the delayed rx on time (the final message will be sent after this delay)
+		 dwt_setrxaftertxdelay((uint32) inst->fixedReplyDelay_sy); //units are 1.0256us - wait for wait4respTIM before RX on (delay RX)
 
-		//response is expected
-		inst->wait4ack = DWT_RESPONSE_EXPECTED;
+		 //response is expected
+		 inst->wait4ack = DWT_RESPONSE_EXPECTED;
 
-		dwt_writetxdata(inst->psduLength, (uint8 *) &inst->msg, 0);	// write the frame data
+		 dwt_writetxdata(inst->psduLength, (uint8 *) &inst->msg, 0);	// write the frame data
 
-		if (instancesendpacket(inst, DWT_START_TX_DELAYED)) {
+		 if (instancesendpacket(inst, DWT_START_TX_DELAYED)) {
 
-			inst->testAppState = TA_RXE_WAIT;  // wait to receive a new poll
-			dwt_setrxaftertxdelay(0);
-			inst->wait4ack = 0; //clear the flag as the TX has failed the TRX is off
-		} else {
-			inst->sentSN = inst->msg.seqNum;
-			inst->done = INST_DONE_WAIT_FOR_NEXT_EVENT;  //no timeout
-		}
-	}
-		break;
+		 inst->testAppState = TA_RXE_WAIT;  // wait to receive a new poll
+		 dwt_setrxaftertxdelay(0);
+		 inst->wait4ack = 0; //clear the flag as the TX has failed the TRX is off
+		 } else {
+		 inst->sentSN = inst->msg.seqNum;
+		 inst->done = INST_DONE_WAIT_FOR_NEXT_EVENT;  //no timeout
+		 }
+		 }
+		 break;*/
 
-	case TA_TXFINAL_WAIT_SEND: {
-		uint64 tagCalculatedFinalTxTime;
+		/*case TA_TXFINAL_WAIT_SEND: {
+		 uint64 tagCalculatedFinalTxTime;
 
-		// Embbed into Final message: 40-bit pollTXTime,  40-bit respRxTime,  40-bit finalTxTime
-		// Write Poll TX time field of Final message
-		memcpy(&(inst->msg.messageData[PTXT]),
-				(uint8 *) &inst->txu.tagPollTxTime, 5);
+		 // Embbed into Final message: 40-bit pollTXTime,  40-bit respRxTime,  40-bit finalTxTime
+		 // Write Poll TX time field of Final message
+		 memcpy(&(inst->msg.messageData[PTXT]),
+		 (uint8 *) &inst->txu.tagPollTxTime, 5);
 
-		// Write Response RX time field of Final message
-		memcpy(&(inst->msg.messageData[RRXT]),
-				(uint8 *) &inst->anchorRespRxTime, 5);
+		 // Write Response RX time field of Final message
+		 memcpy(&(inst->msg.messageData[RRXT]),
+		 (uint8 *) &inst->anchorRespRxTime, 5);
 
-		// Calculate Time Final message will be sent and write this field of Final message
-		// Sending time will be delayedReplyTime, snapped to ~125MHz or ~250MHz boundary by
-		// zeroing its low 9 bits, and then having the TX antenna delay added
-		tagCalculatedFinalTxTime = inst->delayedReplyTime & MASK_TXDTS; // 9 lower bits mask
+		 // Calculate Time Final message will be sent and write this field of Final message
+		 // Sending time will be delayedReplyTime, snapped to ~125MHz or ~250MHz boundary by
+		 // zeroing its low 9 bits, and then having the TX antenna delay added
+		 tagCalculatedFinalTxTime = inst->delayedReplyTime & MASK_TXDTS; // 9 lower bits mask
 
-		// getting antenna delay from the device and add it to the Calculated TX Time
-		tagCalculatedFinalTxTime = tagCalculatedFinalTxTime
-				+ inst->txantennaDelay;
+		 // getting antenna delay from the device and add it to the Calculated TX Time
+		 tagCalculatedFinalTxTime = tagCalculatedFinalTxTime
+		 + inst->txantennaDelay;
 
-		tagCalculatedFinalTxTime &= MASK_40BIT;
+		 tagCalculatedFinalTxTime &= MASK_40BIT;
 
-		// Write Calculated TX time field of Final message
-		memcpy(&(inst->msg.messageData[FTXT]),
-				(uint8 *) &tagCalculatedFinalTxTime, 5);
+		 // Write Calculated TX time field of Final message
+		 memcpy(&(inst->msg.messageData[FTXT]),
+		 (uint8 *) &tagCalculatedFinalTxTime, 5);
 
-#if (USING_64BIT_ADDR==1)
-		setupmacframedata(inst, TAG_FINAL_MSG_LEN,
-		FRAME_CRTL_AND_ADDRESS_L + FRAME_CRC, RTLS_DEMO_MSG_TAG_FINAL,
-				!ACK_REQUESTED);
-#else
-		setupmacframedata(inst, TAG_FINAL_MSG_LEN, FRAME_CRTL_AND_ADDRESS_S + FRAME_CRC, RTLS_DEMO_MSG_TAG_FINAL, !ACK_REQUESTED);
-#endif
+		 #if (USING_64BIT_ADDR==1)
+		 setupmacframedata(inst, TAG_FINAL_MSG_LEN,
+		 FRAME_CRTL_AND_ADDRESS_L + FRAME_CRC, RTLS_DEMO_MSG_TAG_FINAL,
+		 !ACK_REQUESTED);
+		 #else
+		 setupmacframedata(inst, TAG_FINAL_MSG_LEN, FRAME_CRTL_AND_ADDRESS_S + FRAME_CRC, RTLS_DEMO_MSG_TAG_FINAL, !ACK_REQUESTED);
+		 #endif
 
-		if (inst->tag2rxReport == 0) //if not going to wait for report, go to sleep after TX is complete
-				{
-#if (DEEP_SLEEP == 1)
-			dwt_entersleepaftertx(1);
-			//inst->deviceissleeping = 1; //this is to stop polling device status register
-#endif
-		} else //turn on the receiver to receive the report... as it is coming after the final
-		{
-			inst->wait4ack = DWT_RESPONSE_EXPECTED;
-			dwt_setrxaftertxdelay(0); //the report will come XXX ms so we could use short delay to save power
-		}
+		 if (inst->tag2rxReport == 0) //if not going to wait for report, go to sleep after TX is complete
+		 {
+		 #if (DEEP_SLEEP == 1)
+		 dwt_entersleepaftertx(1);
+		 //inst->deviceissleeping = 1; //this is to stop polling device status register
+		 #endif
+		 } else //turn on the receiver to receive the report... as it is coming after the final
+		 {
+		 inst->wait4ack = DWT_RESPONSE_EXPECTED;
+		 dwt_setrxaftertxdelay(0); //the report will come XXX ms so we could use short delay to save power
+		 }
 
-		dwt_writetxdata(inst->psduLength, (uint8 *) &inst->msg, 0);	// write the frame data
+		 dwt_writetxdata(inst->psduLength, (uint8 *) &inst->msg, 0);	// write the frame data
 
-		if (instancesendpacket(inst, DWT_START_TX_DELAYED)) {
-			// initiate the re-transmission
-			inst->testAppState = TA_TXE_WAIT;
-			inst->nextState = TA_TXPOLL_WAIT_SEND;
-#if (DEEP_SLEEP == 1)
-			//printf("dealyed TX failed ??!! %08X\n", dwt_read32bitreg(0xf));
-			dwt_entersleepaftertx(0);
-#endif
-			inst->wait4ack = 0; //clear the flag as the TX has failed the TRX is off
-			break; //exit this switch case...
-		} else {
-			inst->sentSN = inst->msg.seqNum;
-			inst->testAppState = TA_TX_WAIT_CONF;           // wait confirmation
-			inst->previousState = TA_TXFINAL_WAIT_SEND;
-			inst->done = INST_DONE_WAIT_FOR_NEXT_EVENT; //will use RX FWTO to time out  (set below)
-			//inst->responseTimeouts = 0; //reset response timeout count
-		}
+		 if (instancesendpacket(inst, DWT_START_TX_DELAYED)) {
+		 // initiate the re-transmission
+		 inst->testAppState = TA_TXE_WAIT;
+		 inst->nextState = TA_TXPOLL_WAIT_SEND;
+		 #if (DEEP_SLEEP == 1)
+		 //printf("dealyed TX failed ??!! %08X\n", dwt_read32bitreg(0xf));
+		 dwt_entersleepaftertx(0);
+		 #endif
+		 inst->wait4ack = 0; //clear the flag as the TX has failed the TRX is off
+		 break; //exit this switch case...
+		 } else {
+		 inst->sentSN = inst->msg.seqNum;
+		 inst->testAppState = TA_TX_WAIT_CONF;           // wait confirmation
+		 inst->previousState = TA_TXFINAL_WAIT_SEND;
+		 inst->done = INST_DONE_WAIT_FOR_NEXT_EVENT; //will use RX FWTO to time out  (set below)
+		 //inst->responseTimeouts = 0; //reset response timeout count
+		 }
 
-		if (inst->tag2rxReport) //if waiting for report - set timeout to be same as a Sleep timer... if no report coming time out and send another poll
-		{
-			dwt_setrxtimeout(0);
-			//RX will be turned on 80ms after final is sent, then use Sleep timer to timeout this is longer than needed but as DW1000 timeout is only 65ms long it is too short
-			//for the PC application, as the Anchor will send up to 2 reports (if it does not get the ACK) the first of which comes 90-105 ms after the Final TX, and the second
-			//will come about 150ms after the Final is sent. The Tag could use a different timer (shorter than the Sleep) to timeout sooner and go to Sleep
-			inst->done = INST_DONE_WAIT_FOR_NEXT_EVENT_TO;
-		} else //if Tag is not waiting for report - it will go to sleep automatically after the final is sent
-		{
-#if (DEEP_SLEEP == 1)
-			inst->done = INST_DONE_WAIT_FOR_NEXT_EVENT_TO; //kick off the TagTimeoutTimer (instancetimer) to initiate wakeup
-			inst->nextState = TA_TXPOLL_WAIT_SEND;
-			inst->testAppState = TA_SLEEP_DONE;//we are going automatically to sleep so no TX confirm interrupt (next state will be TA_SLEEP_DONE)
-			inst->txmsgcount ++;
-#endif
-		}
+		 if (inst->tag2rxReport) //if waiting for report - set timeout to be same as a Sleep timer... if no report coming time out and send another poll
+		 {
+		 dwt_setrxtimeout(0);
+		 //RX will be turned on 80ms after final is sent, then use Sleep timer to timeout this is longer than needed but as DW1000 timeout is only 65ms long it is too short
+		 //for the PC application, as the Anchor will send up to 2 reports (if it does not get the ACK) the first of which comes 90-105 ms after the Final TX, and the second
+		 //will come about 150ms after the Final is sent. The Tag could use a different timer (shorter than the Sleep) to timeout sooner and go to Sleep
+		 inst->done = INST_DONE_WAIT_FOR_NEXT_EVENT_TO;
+		 } else //if Tag is not waiting for report - it will go to sleep automatically after the final is sent
+		 {
+		 #if (DEEP_SLEEP == 1)
+		 inst->done = INST_DONE_WAIT_FOR_NEXT_EVENT_TO; //kick off the TagTimeoutTimer (instancetimer) to initiate wakeup
+		 inst->nextState = TA_TXPOLL_WAIT_SEND;
+		 inst->testAppState = TA_SLEEP_DONE;//we are going automatically to sleep so no TX confirm interrupt (next state will be TA_SLEEP_DONE)
+		 inst->txmsgcount ++;
+		 #endif
+		 }
 
-	}
-		break;
+		 }
+		 break;*/
 
-	case TA_TXREPORT_WAIT_SEND: {
+		/*case TA_TXREPORT_WAIT_SEND: {
 
-		if (inst->newReportSent == 0) //keep the same message if re-sending the same report
-				{
-			// Write calculated TOF into report message
-			memcpy(&(inst->msg.messageData[TOFR]), &inst->tof, 5);
-		} else {
-			//re-send the old report
-			inst->msg.seqNum--;
-		}
+		 if (inst->newReportSent == 0) //keep the same message if re-sending the same report
+		 {
+		 // Write calculated TOF into report message
+		 memcpy(&(inst->msg.messageData[TOFR]), &inst->tof, 5);
+		 } else {
+		 //re-send the old report
+		 inst->msg.seqNum--;
+		 }
 
-//NOTE - Auto ACK only works if frame filtering is enabled!
-#if (USING_64BIT_ADDR==1)
-		setupmacframedata(inst, TOF_REPORT_MSG_LEN,
-		FRAME_CRTL_AND_ADDRESS_L + FRAME_CRC, RTLS_DEMO_MSG_ANCH_TOFR,
-				((ENABLE_AUTO_ACK == 1) ? (ACK_REQUESTED) : (!ACK_REQUESTED)));
-#else
-		setupmacframedata(inst, TOF_REPORT_MSG_LEN, FRAME_CRTL_AND_ADDRESS_S + FRAME_CRC, RTLS_DEMO_MSG_ANCH_TOFR, ((ENABLE_AUTO_ACK == 1)?(ACK_REQUESTED):(!ACK_REQUESTED)));
-#endif
+		 //NOTE - Auto ACK only works if frame filtering is enabled!
+		 #if (USING_64BIT_ADDR==1)
+		 setupmacframedata(inst, TOF_REPORT_MSG_LEN,
+		 FRAME_CRTL_AND_ADDRESS_L + FRAME_CRC, RTLS_DEMO_MSG_ANCH_TOFR,
+		 ((ENABLE_AUTO_ACK == 1) ? (ACK_REQUESTED) : (!ACK_REQUESTED)));
+		 #else
+		 setupmacframedata(inst, TOF_REPORT_MSG_LEN, FRAME_CRTL_AND_ADDRESS_S + FRAME_CRC, RTLS_DEMO_MSG_ANCH_TOFR, ((ENABLE_AUTO_ACK == 1)?(ACK_REQUESTED):(!ACK_REQUESTED)));
+		 #endif
 
-		dwt_writetxdata(inst->psduLength, (uint8 *) &inst->msg, 0);	// write the frame data
+		 dwt_writetxdata(inst->psduLength, (uint8 *) &inst->msg, 0);	// write the frame data
 
-		//set the delayed rx on time (the ranging init will be sent after this delay)
-		//subtract 1ms to make sure the receiver is on before the message comes in
-		dwt_setrxaftertxdelay(0); //units are ~us - wait for wait4respTIM before RX on (delay RX)
+		 //set the delayed rx on time (the ranging init will be sent after this delay)
+		 //subtract 1ms to make sure the receiver is on before the message comes in
+		 dwt_setrxaftertxdelay(0); //units are ~us - wait for wait4respTIM before RX on (delay RX)
 
-		//response is expected
-		inst->wait4ack = DWT_RESPONSE_EXPECTED;
-		//anchor - we don't use timeout, if the ACK is missed we'll get a Poll or Blink
-		if (inst->wait4ack) {
-			//if the ACK is requested there is a 5ms timeout to stop RX if no ACK coming
-			dwt_setrxtimeout(5000);  //units are us - wait for 5ms after RX on
-		}
+		 //response is expected
+		 inst->wait4ack = DWT_RESPONSE_EXPECTED;
+		 //anchor - we don't use timeout, if the ACK is missed we'll get a Poll or Blink
+		 if (inst->wait4ack) {
+		 //if the ACK is requested there is a 5ms timeout to stop RX if no ACK coming
+		 dwt_setrxtimeout(5000);  //units are us - wait for 5ms after RX on
+		 }
 
-		dwt_writetxfctrl(inst->psduLength, 0);
+		 dwt_writetxfctrl(inst->psduLength, 0);
 
-		dwt_starttx(DWT_START_TX_IMMEDIATE | inst->wait4ack);
+		 dwt_starttx(DWT_START_TX_IMMEDIATE | inst->wait4ack);
 
-		dataseq[0] = 0x2;  //return cursor home
-		writetoLCD(1, 0, dataseq);
-		memcpy(&dataseq[0], (const uint8 *) "    REPORT      ", 16);
-		writetoLCD(40, 1, dataseq); //send some data
-		memcpy(&dataseq[0], (const uint8 *) "    SEND END    ", 16);	//report send end
-		writetoLCD(16, 1, dataseq); //send some data
+		 dataseq[0] = 0x2;  //return cursor home
+		 writetoLCD(1, 0, dataseq);
+		 memcpy(&dataseq[0], (const uint8 *) "    REPORT      ", 16);
+		 writetoLCD(40, 1, dataseq); //send some data
+		 memcpy(&dataseq[0], (const uint8 *) "    SEND END    ", 16);	//report send end
+		 writetoLCD(16, 1, dataseq); //send some data
 
-		inst->sentSN = inst->msg.seqNum;
-		inst->testAppState = TA_TX_WAIT_CONF;               // wait confirmation
-		inst->previousState = TA_TXREPORT_WAIT_SEND;
+		 inst->sentSN = inst->msg.seqNum;
+		 inst->testAppState = TA_TX_WAIT_CONF;               // wait confirmation
+		 inst->previousState = TA_TXREPORT_WAIT_SEND;
 
-		inst->newReportSent++;
+		 inst->newReportSent++;
 
-		//use anchor rx timeout to timeout and re-send the ToF report
-		inst->done = INST_DONE_WAIT_FOR_NEXT_EVENT_TO;
+		 //use anchor rx timeout to timeout and re-send the ToF report
+		 inst->done = INST_DONE_WAIT_FOR_NEXT_EVENT_TO;
 
-	}
-		break;
+		 }
+		 break;*/
 
-	case TA_TX_WAIT_CONF:
-		//printf("TA_TX_WAIT_CONF %d m%d %d states %08x %08x\n", inst->previousState, message, inst->newReportSent, dwt_read32bitreg(0x19), dwt_read32bitreg(0x0f)) ;
+		/*case TA_TX_WAIT_CONF:
+		 //printf("TA_TX_WAIT_CONF %d m%d %d states %08x %08x\n", inst->previousState, message, inst->newReportSent, dwt_read32bitreg(0x19), dwt_read32bitreg(0x0f)) ;
 
-	{
-		event_data_t* dw_event = instance_getevent(11); //get and clear this event
+		 {
+		 event_data_t* dw_event = instance_getevent(11); //get and clear this event
 
-		/*
-		dataseq[0] = 0x2;  //return cursor home
-		writetoLCD(1, 0, dataseq);
-		memcpy(&dataseq[0], (const uint8 *) "TA_TX_WAIT_CONF ", 16);
-		writetoLCD(40, 1, dataseq); //send some data
-		memcpy(&dataseq[0], (const uint8 *) "        123123  ", 16);
-		writetoLCD(16, 1, dataseq); //send some data			//JSH
-		*/
 
-		//NOTE: Can get the ACK before the TX confirm event for the frame requesting the ACK
-		//this happens because if polling the ISR the RX event will be processed 1st and then the TX event
-		//thus the reception of the ACK will be processed before the TX confirmation of the frame that requested it.
-		if (dw_event->type != DWT_SIG_TX_DONE) //wait for TX done confirmation
-		{
-			if (dw_event->type == DWT_SIG_RX_TIMEOUT) //got RX timeout - i.e. did not get the response (e.g. ACK)
-			{
-				//printf("RX timeout in TA_TX_WAIT_CONF (%d)\n", inst->previousState);
-				//we need to wait for SIG_TX_DONE and then process the timeout and re-send the frame if needed
-				inst->gotTO = 1;
-			}
-			if (dw_event->type == SIG_RX_ACK) {
-				inst->wait4ack = 0; //clear the flag as the ACK has been received
-				inst_processackmsg(inst, dw_event->msgu.rxackmsg.seqNum);
-				//printf("RX ACK in TA_TX_WAIT_CONF... wait for TX confirm before changing state (%d)\n", inst->previousState);
-			}
+		 dataseq[0] = 0x2;  //return cursor home
+		 writetoLCD(1, 0, dataseq);
+		 memcpy(&dataseq[0], (const uint8 *) "TA_TX_WAIT_CONF ", 16);
+		 writetoLCD(40, 1, dataseq); //send some data
+		 memcpy(&dataseq[0], (const uint8 *) "        123123  ", 16);
+		 writetoLCD(16, 1, dataseq); //send some data			//JSH
 
-			inst->done = INST_DONE_WAIT_FOR_NEXT_EVENT;
-			break;
 
-		}
+		 //NOTE: Can get the ACK before the TX confirm event for the frame requesting the ACK
+		 //this happens because if polling the ISR the RX event will be processed 1st and then the TX event
+		 //thus the reception of the ACK will be processed before the TX confirmation of the frame that requested it.
+		 if (dw_event->type != DWT_SIG_TX_DONE) //wait for TX done confirmation
+		 {
+		 if (dw_event->type == DWT_SIG_RX_TIMEOUT) //got RX timeout - i.e. did not get the response (e.g. ACK)
+		 {
+		 //printf("RX timeout in TA_TX_WAIT_CONF (%d)\n", inst->previousState);
+		 //we need to wait for SIG_TX_DONE and then process the timeout and re-send the frame if needed
+		 inst->gotTO = 1;
+		 }
+		 if (dw_event->type == SIG_RX_ACK) {
+		 inst->wait4ack = 0; //clear the flag as the ACK has been received
+		 inst_processackmsg(inst, dw_event->msgu.rxackmsg.seqNum);
+		 //printf("RX ACK in TA_TX_WAIT_CONF... wait for TX confirm before changing state (%d)\n", inst->previousState);
+		 }
 
-		inst->done = INST_NOT_DONE_YET;
+		 inst->done = INST_DONE_WAIT_FOR_NEXT_EVENT;
+		 break;
 
-		if ((inst->previousState == TA_TXFINAL_WAIT_SEND) //tag will do immediate receive when waiting for report (as anchor sends it without delay)
-		&& (inst->tag2rxReport == 0)) //anchor is not sending the report to tag
-				{
-			inst->testAppState = TA_TXE_WAIT;
-			inst->nextState = TA_TXPOLL_WAIT_SEND;
-			break;
-		} else if (inst->gotTO) //timeout
-		{
-			//printf("got TO in TA_TX_WAIT_CONF\n");
-			inst_processrxtimeout(inst);
-			inst->gotTO = 0;
-			inst->wait4ack = 0; //clear this
-			break;
-		} else {
-			inst->txu.txTimeStamp = dw_event->timeStamp;
+		 }
 
-			inst->testAppState = TA_RXE_WAIT; // After sending, tag expects response/report, anchor waits to receive a final/new poll
-			//fall into the next case (turn on the RX)
-			message = 0;
-		}
-		break; // end case TA_TX_WAIT_CONF
-	}
+		 inst->done = INST_NOT_DONE_YET;
+
+		 if ((inst->previousState == TA_TXFINAL_WAIT_SEND) //tag will do immediate receive when waiting for report (as anchor sends it without delay)
+		 && (inst->tag2rxReport == 0)) //anchor is not sending the report to tag
+		 {
+		 inst->testAppState = TA_TXE_WAIT;
+		 inst->nextState = TA_TXPOLL_WAIT_SEND;
+		 break;
+		 } else if (inst->gotTO) //timeout
+		 {
+		 //printf("got TO in TA_TX_WAIT_CONF\n");
+		 inst_processrxtimeout(inst);
+		 inst->gotTO = 0;
+		 inst->wait4ack = 0; //clear this
+		 break;
+		 } else {
+		 inst->txu.txTimeStamp = dw_event->timeStamp;
+
+		 inst->testAppState = TA_RXE_WAIT; // After sending, tag expects response/report, anchor waits to receive a final/new poll
+		 //fall into the next case (turn on the RX)
+		 message = 0;
+		 }
+		 break; // end case TA_TX_WAIT_CONF
+		 }*/
 
 	case TA_TX_CALL_WAIT_CONF:
 		//printf("TA_TX_WAIT_CONF %d m%d %d states %08x %08x\n", inst->previousState, message, inst->newReportSent, dwt_read32bitreg(0x19), dwt_read32bitreg(0x0f)) ;
@@ -891,43 +1005,102 @@ int testapprun_s(instance_data_t *inst, int message) {
 			memcpy(&dataseq[0], (const uint8 *) "    FINISH      ", 16);
 			writetoLCD(16, 1, dataseq); //send some data
 
-
 			break;
-		} else if (inst->gotTO) //timeout
-		{
-			//printf("got TO in TA_TX_WAIT_CONF\n");
-			inst->testAppState = TA_TXCALL_WAIT_SEND;
-			dataseq[0] = 0x2;  //return cursor home
-			writetoLCD(1, 0, dataseq);
-			memcpy(&dataseq[0], (const uint8 *) "    CALLING     ", 16);
-			writetoLCD(40, 1, dataseq); //send some data
-			memcpy(&dataseq[0], (const uint8 *) "    AGAIN       ", 16);
-			writetoLCD(16, 1, dataseq); //send some data
-			inst->gotTO = 0;
-			inst->wait4ack = 0; //clear this
-			//instance_tagaddr++;
-			break;
-		}
+		}/* else if (inst->gotTO) //timeout
+		 {
+		 //printf("got TO in TA_TX_WAIT_CONF\n");
+		 inst->testAppState = TA_TXCALL_WAIT_SEND;
+		 dataseq[0] = 0x2;  //return cursor home
+		 writetoLCD(1, 0, dataseq);
+		 memcpy(&dataseq[0], (const uint8 *) "    CALLING     ", 16);
+		 writetoLCD(40, 1, dataseq); //send some data
+		 memcpy(&dataseq[0], (const uint8 *) "    AGAIN       ", 16);
+		 writetoLCD(16, 1, dataseq); //send some data
+		 inst->gotTO = 0;
+		 inst->wait4ack = 0; //clear this
+		 //instance_tagaddr++;
+		 break;
+		 }*/
 		break;
 
 	}
-
+		break;
 		/*
 		 * wait ack. if ack is arrive, go next state
 		 * 2015.01.19 JB
 		 */
 
+	case TA_TX_CHECK_WAIT_CONF:
+		//printf("TA_TX_WAIT_CONF %d m%d %d states %08x %08x\n", inst->previousState, message, inst->newReportSent, dwt_read32bitreg(0x19), dwt_read32bitreg(0x0f)) ;
+
+	{
+		event_data_t* dw_event = instance_getevent(19); //get and clear this event
+
+		//NOTE: Can get the ACK before the TX confirm event for the frame requesting the ACK
+		//this happens because if polling the ISR the RX event will be processed 1st and then the TX event
+		//thus the reception of the ACK will be processed before the TX confirmation of the frame that requested it.
+		if (dw_event->type != DWT_SIG_TX_DONE) //wait for TX done confirmation
+		{
+			if (dw_event->type == DWT_SIG_RX_TIMEOUT) //got RX timeout - i.e. did not get the response (e.g. ACK)
+			{
+				//printf("RX timeout in TA_TX_WAIT_CONF (%d)\n", inst->previousState);
+				//we need to wait for SIG_TX_DONE and then process the timeout and re-send the frame if needed
+				inst->gotTO = 1;
+			}
+			if (dw_event->type == SIG_RX_ACK) {
+				inst->wait4ack = 0; //clear the flag as the ACK has been received
+				inst_processackmsg(inst, dw_event->msgu.rxackmsg.seqNum);
+				//printf("RX ACK in TA_TX_WAIT_CONF... wait for TX confirm before changing state (%d)\n", inst->previousState);
+			}
+
+			inst->done = INST_DONE_WAIT_FOR_NEXT_EVENT;
+			break;
+
+		}
+
+		inst->done = INST_NOT_DONE_YET;
+
+		if (inst->previousState == TA_TXCHECK_WAIT_SEND) {
+			inst->testAppState = TA_RXE_WAIT;
+			dataseq[0] = 0x2;  //return cursor home
+			writetoLCD(1, 0, dataseq);
+			memcpy(&dataseq[0], (const uint8 *) "    CHECK       ", 16);
+			writetoLCD(40, 1, dataseq); //send some data
+			memcpy(&dataseq[0], (const uint8 *) "    FINISH      ", 16);
+			writetoLCD(16, 1, dataseq); //send some data
+
+			break;
+		}/* else if (inst->gotTO) //timeout
+		 {
+		 //printf("got TO in TA_TX_WAIT_CONF\n");
+		 inst->testAppState = TA_TXCALL_WAIT_SEND;
+		 dataseq[0] = 0x2;  //return cursor home
+		 writetoLCD(1, 0, dataseq);
+		 memcpy(&dataseq[0], (const uint8 *) "    CALLING     ", 16);
+		 writetoLCD(40, 1, dataseq); //send some data
+		 memcpy(&dataseq[0], (const uint8 *) "    AGAIN       ", 16);
+		 writetoLCD(16, 1, dataseq); //send some data
+		 inst->gotTO = 0;
+		 inst->wait4ack = 0; //clear this
+		 //instance_tagaddr++;
+		 break;
+		 }*/
+		break;
+
+	}	//2015.03.05 JSH TA_TX_CHECK_WAIT_CONF
+		break;
+
 	case TA_RXE_WAIT:
 		// printf("TA_RXE_WAIT") ;
 	{
-/*
-		dataseq[0] = 0x2;  //return cursor home
-		writetoLCD(1, 0, dataseq);
-		memcpy(&dataseq[0], (const uint8 *) "TA_RXE_WAIT     ", 16);
-		writetoLCD(40, 1, dataseq); //send some data
-		memcpy(&dataseq[0], (const uint8 *) "ARRIVED         ", 16);
-		writetoLCD(16, 1, dataseq); //send some data				//JSH 123123
-		*/
+		/*
+		 dataseq[0] = 0x2;  //return cursor home
+		 writetoLCD(1, 0, dataseq);
+		 memcpy(&dataseq[0], (const uint8 *) "TA_RXE_WAIT     ", 16);
+		 writetoLCD(40, 1, dataseq); //send some data
+		 memcpy(&dataseq[0], (const uint8 *) "ARRIVED         ", 16);
+		 writetoLCD(16, 1, dataseq); //send some data				//JSH 123123
+		 */
 
 		if (inst->wait4ack == 0) //if this is set the RX will turn on automatically after TX
 				{
@@ -952,15 +1125,14 @@ int testapprun_s(instance_data_t *inst, int message) {
 	case TA_RX_WAIT_DATA:                                        // Wait RX data
 		//printf("TA_RX_WAIT_DATA %d", message) ;
 
-/*
-		dataseq[0] = 0x2;  //return cursor home
-		writetoLCD(1, 0, dataseq);
-		memcpy(&dataseq[0], (const uint8 *) "TA_RX_WAIT_DATA ", 16);
-		writetoLCD(40, 1, dataseq); //send some data
-		memcpy(&dataseq[0], (const uint8 *) "GOT ARRIVED     ", 16);
-		writetoLCD(16, 1, dataseq); //send some data				//JSH
-		*/
-
+		/*
+		 dataseq[0] = 0x2;  //return cursor home
+		 writetoLCD(1, 0, dataseq);
+		 memcpy(&dataseq[0], (const uint8 *) "TA_RX_WAIT_DATA ", 16);
+		 writetoLCD(40, 1, dataseq); //send some data
+		 memcpy(&dataseq[0], (const uint8 *) "GOT ARRIVED     ", 16);
+		 writetoLCD(16, 1, dataseq); //send some data				//JSH
+		 */
 
 		switch (message) {
 		case SIG_RX_BLINK: {
@@ -1058,13 +1230,13 @@ int testapprun_s(instance_data_t *inst, int message) {
 			uint8 *messageData;
 
 			/*
-			dataseq[0] = 0x2;  //return cursor home
-			writetoLCD(1, 0, dataseq);
-			memcpy(&dataseq[0], (const uint8 *) "TA_RX_WAIT_DATA ", 16);
-			writetoLCD(40, 1, dataseq); //send some data
-			memcpy(&dataseq[0], (const uint8 *) "DWT_SIG_RX_OKAY ", 16);
-			writetoLCD(16, 1, dataseq); //send some data			//JSH
-			*/
+			 dataseq[0] = 0x2;  //return cursor home
+			 writetoLCD(1, 0, dataseq);
+			 memcpy(&dataseq[0], (const uint8 *) "TA_RX_WAIT_DATA ", 16);
+			 writetoLCD(40, 1, dataseq); //send some data
+			 memcpy(&dataseq[0], (const uint8 *) "DWT_SIG_RX_OKAY ", 16);
+			 writetoLCD(16, 1, dataseq); //send some data			//JSH
+			 */
 
 			inst->stoptimer = 0; //clear the flag, as we have received a message
 
@@ -1135,84 +1307,84 @@ int testapprun_s(instance_data_t *inst, int message) {
 				fcode = fn_code;
 #endif
 				switch (fcode) {
-				case RTLS_DEMO_MSG_RNG_INIT: {
-					non_user_payload_len = RANGINGINIT_MSG_LEN;
-					if (inst->mode == TAG_TDOA) //only start ranging with someone if not ranging already
-							{
-						inst->testAppState = TA_TXE_WAIT;
-						inst->nextState = TA_TXPOLL_WAIT_SEND; // send next poll
+				/*case RTLS_DEMO_MSG_RNG_INIT: {
+				 non_user_payload_len = RANGINGINIT_MSG_LEN;
+				 if (inst->mode == TAG_TDOA) //only start ranging with someone if not ranging already
+				 {
+				 inst->testAppState = TA_TXE_WAIT;
+				 inst->nextState = TA_TXPOLL_WAIT_SEND; // send next poll
 
-						inst->tagShortAdd = messageData[RES_R1]
-								+ (messageData[RES_R2] << 8);
-						instancesetreplydelay(
-								messageData[RES_T1]
-										+ (messageData[RES_T2] << 8), 0); //set the new timeouts/delay times for RX
+				 inst->tagShortAdd = messageData[RES_R1]
+				 + (messageData[RES_R2] << 8);
+				 instancesetreplydelay(
+				 messageData[RES_T1]
+				 + (messageData[RES_T2] << 8), 0); //set the new timeouts/delay times for RX
 
-#if (USING_64BIT_ADDR == 1)
-						memcpy(&inst->msg.destAddr[0], &srcAddr[0],
-						ADDR_BYTE_SIZE_L); //set the anchor address for the reply (set destination address)
-#else
-								memcpy(&inst->msg.destAddr[0], &srcAddr[0], ADDR_BYTE_SIZE_S); //set anchor address for the reply (set destination address)
-								inst->msg.sourceAddr[0] = messageData[RES_R1];//set tag short address
-								inst->msg.sourceAddr[1] = messageData[RES_R2];
-								dwt_setaddress16(inst->tagShortAdd);
-#endif
+				 #if (USING_64BIT_ADDR == 1)
+				 memcpy(&inst->msg.destAddr[0], &srcAddr[0],
+				 ADDR_BYTE_SIZE_L); //set the anchor address for the reply (set destination address)
+				 #else
+				 memcpy(&inst->msg.destAddr[0], &srcAddr[0], ADDR_BYTE_SIZE_S); //set anchor address for the reply (set destination address)
+				 inst->msg.sourceAddr[0] = messageData[RES_R1];//set tag short address
+				 inst->msg.sourceAddr[1] = messageData[RES_R2];
+				 dwt_setaddress16(inst->tagShortAdd);
+				 #endif
 
-						inst->mode = TAG;
-						//inst->responseTimeouts = 0; //reset timeout count
-						inst->instToSleep = 0; //don't go to sleep - start ranging instead and then sleep after 1 range is done or poll times out
-					}
-					//printf("GOT RTLS_DEMO_MSG_RNG_INIT - start ranging - \n");
-					//else we ignore this message if already associated... (not TAG_TDOA)
-				}
-					break; //RTLS_DEMO_MSG_RNG_INIT
+				 inst->mode = TAG;
+				 //inst->responseTimeouts = 0; //reset timeout count
+				 inst->instToSleep = 0; //don't go to sleep - start ranging instead and then sleep after 1 range is done or poll times out
+				 }
+				 //printf("GOT RTLS_DEMO_MSG_RNG_INIT - start ranging - \n");
+				 //else we ignore this message if already associated... (not TAG_TDOA)
+				 }
+				 break; //RTLS_DEMO_MSG_RNG_INIT*/
 
-				case RTLS_DEMO_MSG_TAG_POLL: {
-					non_user_payload_len = TAG_POLL_MSG_LEN;
-					if (inst->mode == LISTENER) //don't process any ranging messages when in Listener mode
-							{
-						//only enable receiver when not using double buffering
-						if (inst->doublebufferon == 0) {
-							inst->testAppState = TA_RXE_WAIT; // wait for next frame
-						}
-						break;
-					}
+				/*case RTLS_DEMO_MSG_TAG_POLL: {
+				 non_user_payload_len = TAG_POLL_MSG_LEN;
+				 if (inst->mode == LISTENER) //don't process any ranging messages when in Listener mode
+				 {
+				 //only enable receiver when not using double buffering
+				 if (inst->doublebufferon == 0) {
+				 inst->testAppState = TA_RXE_WAIT; // wait for next frame
+				 }
+				 break;
+				 }
 
-					if (!inst->frameFilteringEnabled) {
-						// if we missed the ACK to the ranging init message we may not have turned frame filtering on
-						dwt_enableframefilter(DWT_FF_DATA_EN | DWT_FF_ACK_EN); //we are starting ranging - enable the filter....
-						inst->frameFilteringEnabled = 1;
-					}
+				 if (!inst->frameFilteringEnabled) {
+				 // if we missed the ACK to the ranging init message we may not have turned frame filtering on
+				 dwt_enableframefilter(DWT_FF_DATA_EN | DWT_FF_ACK_EN); //we are starting ranging - enable the filter....
+				 inst->frameFilteringEnabled = 1;
+				 }
 
-					inst->tagPollRxTime = dw_event->timeStamp; //Poll's Rx time
+				 inst->tagPollRxTime = dw_event->timeStamp; //Poll's Rx time
 
-					inst->delayedReplyTime = inst->tagPollRxTime
-							+ inst->fixedReplyDelay; // time we should send the response
-					inst->delayedReplyTime &= MASK_TXDTS;
+				 inst->delayedReplyTime = inst->tagPollRxTime
+				 + inst->fixedReplyDelay; // time we should send the response
+				 inst->delayedReplyTime &= MASK_TXDTS;
 
-					//printf("PollRx Timestamp: %4.15e\n", convertdevicetimetosecu(dw_event.timeStamp));
-					//printf("Delay: %4.15e\n", convertdevicetimetosecu(inst->delayedReplyTime));
-					if (inst->doublebufferon == 1) {
-						dwt_forcetrxoff();
-					}
+				 //printf("PollRx Timestamp: %4.15e\n", convertdevicetimetosecu(dw_event.timeStamp));
+				 //printf("Delay: %4.15e\n", convertdevicetimetosecu(inst->delayedReplyTime));
+				 if (inst->doublebufferon == 1) {
+				 dwt_forcetrxoff();
+				 }
 
-					dataseq[0] = 0x2;  //return cursor home
-					writetoLCD(1, 0, dataseq);
-					memcpy(&dataseq[0], (const uint8 *) "    POLLING     ", 16);
-					writetoLCD(40, 1, dataseq); //send some data
-					memcpy(&dataseq[0], (const uint8 *) "    ARRIVE      ", 16);
-					writetoLCD(16, 1, dataseq); //send some data
-					inst->testAppState = TA_TXRESPONSE_WAIT_SEND; // send our response
-					inst->canprintinfo = 0;
+				 dataseq[0] = 0x2;  //return cursor home
+				 writetoLCD(1, 0, dataseq);
+				 memcpy(&dataseq[0], (const uint8 *) "    POLLING     ", 16);
+				 writetoLCD(40, 1, dataseq); //send some data
+				 memcpy(&dataseq[0], (const uint8 *) "    ARRIVE      ", 16);
+				 writetoLCD(16, 1, dataseq); //send some data
+				 inst->testAppState = TA_TXRESPONSE_WAIT_SEND; // send our response
+				 inst->canprintinfo = 0;
 
-#if (USING_64BIT_ADDR == 1)
-					memcpy(&inst->msg.destAddr[0], &srcAddr[0],
-					ADDR_BYTE_SIZE_L); //remember who to send the reply to (set destination address)
-#else
-							memcpy(&inst->msg.destAddr[0], &srcAddr[0], ADDR_BYTE_SIZE_S); //remember who to send the reply to (set destination address)
-#endif
-				}
-					break; //RTLS_DEMO_MSG_TAG_POLL
+				 #if (USING_64BIT_ADDR == 1)
+				 memcpy(&inst->msg.destAddr[0], &srcAddr[0],
+				 ADDR_BYTE_SIZE_L); //remember who to send the reply to (set destination address)
+				 #else
+				 memcpy(&inst->msg.destAddr[0], &srcAddr[0], ADDR_BYTE_SIZE_S); //remember who to send the reply to (set destination address)
+				 #endif
+				 }
+				 break; //RTLS_DEMO_MSG_TAG_POLL*/
 
 				case RTLS_DEMO_MSG_ANCHOR_CALL: {
 					non_user_payload_len = TAG_POLL_MSG_LEN;
@@ -1250,76 +1422,110 @@ int testapprun_s(instance_data_t *inst, int message) {
 				}
 					break; //RTLS_DEMO_MSG_ANCHOR_CALL
 
-				case RTLS_DEMO_MSG_ANCH_RESP: {
-					non_user_payload_len = ANCH_RESPONSE_MSG_LEN;
-					if (inst->mode == LISTENER) //don't process any ranging messages when in Listener mode
-							{
-						//only enable receiver when not using double buffering
-						if (inst->doublebufferon == 0) {
-							inst->testAppState = TA_RXE_WAIT; // wait for next frame
-						}
-						break;
+				case RTLS_DEMO_MSG_TAG_REPLY: {
+					non_user_payload_len = TAG_POLL_MSG_LEN;
+
+					if (!inst->frameFilteringEnabled) {
+						// if we missed the ACK to the ranging init message we may not have turned frame filtering on
+						dwt_enableframefilter(DWT_FF_DATA_EN | DWT_FF_ACK_EN); //we are starting ranging - enable the filter....
+						inst->frameFilteringEnabled = 1;
 					}
-					inst->tag2rxReport = messageData[RES_R2]; //check if the anchor is going to send the report
-															  //if no report coming, go to sleep before sending the next poll
 
-					inst->anchorRespRxTime = dw_event->timeStamp; //Response's Rx time
-
-					inst->delayedReplyTime = inst->anchorRespRxTime
-							+ inst->fixedReplyDelay; // time we should send the response
-					inst->delayedReplyTime &= MASK_TXDTS;
-
-					//printf("RespRx Timestamp: %4.15e\n", convertdevicetimetosecu(dw_event.timeStamp));
-					//printf("Delay: %4.15e\n", convertdevicetimetosecu(inst->delayedReplyTime));
 					if (inst->doublebufferon == 1) {
 						dwt_forcetrxoff();
 					}
+					Sleep(CHECK_DELAY);		// 2015.03.05 JSH call delay control
 
-					dataseq[0] = 0x2;  //return cursor home
-					writetoLCD(1, 0, dataseq);
-					memcpy(&dataseq[0], (const uint8 *) "    RESPONSE    ", 16);
-					writetoLCD(40, 1, dataseq); //send some data
-					memcpy(&dataseq[0], (const uint8 *) "    ARRIVE      ", 16);
-					writetoLCD(16, 1, dataseq); //send some data
-					inst->testAppState = TA_TXFINAL_WAIT_SEND; // send our response / the final
-#if (USING_64BIT_ADDR == 1)
-					memcpy(&inst->relpyAddress[0], &srcAddr[0],
+					CHECK_FLAG[inst->checkIndex - 1] = 1;
+
+					if (inst->checkIndex < CHECK_MAX) {
+						inst->testAppState = TA_TXCHECK_WAIT_SEND;
+						inst->nextState = TA_TX_CHECK_WAIT_CONF;// determine whether tag replied or not by nextState 2015.03.05 JSH
+					}
+
+					if (inst->checkIndex == CHECK_MAX) {
+						inst->testAppState = TA_TXCALL_WAIT_SEND;
+						inst->nextState = TA_TX_CALL_WAIT_CONF;	// determine whether tag replied or not by nextState 2015.03.05 JSH
+						//inst->sessionIndex++;
+					}
+
+					inst->canprintinfo = 0;
+
+					memcpy(&inst->msg.destAddr[0], &srcAddr[0],
 					ADDR_BYTE_SIZE_L); //remember who to send the reply to (set destination address)
-#else
-							memcpy(&inst->relpyAddress[0], &srcAddr[0], ADDR_BYTE_SIZE_S); //remember who to send the reply to (set destination address)
-#endif
-					inst->respPSC = (dwt_read16bitoffsetreg(0x10, 2) >> 4);
-					inst->canprintinfo = 2;
 				}
-					break; //RTLS_DEMO_MSG_ANCH_RESP
+					break; //RTLS_DEMO_MSG_TAG_REPLY	2015.03.05 JSH
 
-				case RTLS_DEMO_MSG_ANCH_TOFR: {
-					non_user_payload_len = TOF_REPORT_MSG_LEN;
-					if (inst->mode == LISTENER) //don't process any ranging messages when in Listener mode
-							{
-						//only enable receiver when not using double buffering
-						if (inst->doublebufferon == 0) {
-							inst->testAppState = TA_RXE_WAIT; // wait for next frame
-						}
-						break;
-					}
+					/*case RTLS_DEMO_MSG_ANCH_RESP: {
+					 non_user_payload_len = ANCH_RESPONSE_MSG_LEN;
+					 if (inst->mode == LISTENER) //don't process any ranging messages when in Listener mode
+					 {
+					 //only enable receiver when not using double buffering
+					 if (inst->doublebufferon == 0) {
+					 inst->testAppState = TA_RXE_WAIT; // wait for next frame
+					 }
+					 break;
+					 }
+					 inst->tag2rxReport = messageData[RES_R2]; //check if the anchor is going to send the report
+					 //if no report coming, go to sleep before sending the next poll
 
-					memcpy(&inst->tof, &(messageData[TOFR]), 5);
+					 inst->anchorRespRxTime = dw_event->timeStamp; //Response's Rx time
 
-					if (dw_event->msgu.frame[2] != inst->lastReportSN) //compare sequence numbers
-							{
-						reportTOF(inst);
-						inst->newrange = 1;
-						inst->lastReportSN = dw_event->msgu.frame[2];
-						//inst->lastReportTime = time_ms;
-					}
+					 inst->delayedReplyTime = inst->anchorRespRxTime
+					 + inst->fixedReplyDelay; // time we should send the response
+					 inst->delayedReplyTime &= MASK_TXDTS;
 
-					//printf("ToFRx Timestamp: %4.15e\n", convertdevicetimetosecu(dw_event.timeStamp));
+					 //printf("RespRx Timestamp: %4.15e\n", convertdevicetimetosecu(dw_event.timeStamp));
+					 //printf("Delay: %4.15e\n", convertdevicetimetosecu(inst->delayedReplyTime));
+					 if (inst->doublebufferon == 1) {
+					 dwt_forcetrxoff();
+					 }
 
-					inst->testAppState = TA_TXE_WAIT;
-					inst->nextState = TA_TXPOLL_WAIT_SEND; // send next poll
-				}
-					break; //RTLS_DEMO_MSG_ANCH_TOFR
+					 dataseq[0] = 0x2;  //return cursor home
+					 writetoLCD(1, 0, dataseq);
+					 memcpy(&dataseq[0], (const uint8 *) "    RESPONSE    ", 16);
+					 writetoLCD(40, 1, dataseq); //send some data
+					 memcpy(&dataseq[0], (const uint8 *) "    ARRIVE      ", 16);
+					 writetoLCD(16, 1, dataseq); //send some data
+					 inst->testAppState = TA_TXFINAL_WAIT_SEND; // send our response / the final
+					 #if (USING_64BIT_ADDR == 1)
+					 memcpy(&inst->relpyAddress[0], &srcAddr[0],
+					 ADDR_BYTE_SIZE_L); //remember who to send the reply to (set destination address)
+					 #else
+					 memcpy(&inst->relpyAddress[0], &srcAddr[0], ADDR_BYTE_SIZE_S); //remember who to send the reply to (set destination address)
+					 #endif
+					 inst->respPSC = (dwt_read16bitoffsetreg(0x10, 2) >> 4);
+					 inst->canprintinfo = 2;
+					 }
+					 break; //RTLS_DEMO_MSG_ANCH_RESP*/
+
+					/*case RTLS_DEMO_MSG_ANCH_TOFR: {
+					 non_user_payload_len = TOF_REPORT_MSG_LEN;
+					 if (inst->mode == LISTENER) //don't process any ranging messages when in Listener mode
+					 {
+					 //only enable receiver when not using double buffering
+					 if (inst->doublebufferon == 0) {
+					 inst->testAppState = TA_RXE_WAIT; // wait for next frame
+					 }
+					 break;
+					 }
+
+					 memcpy(&inst->tof, &(messageData[TOFR]), 5);
+
+					 if (dw_event->msgu.frame[2] != inst->lastReportSN) //compare sequence numbers
+					 {
+					 reportTOF(inst);
+					 inst->newrange = 1;
+					 inst->lastReportSN = dw_event->msgu.frame[2];
+					 //inst->lastReportTime = time_ms;
+					 }
+
+					 //printf("ToFRx Timestamp: %4.15e\n", convertdevicetimetosecu(dw_event.timeStamp));
+
+					 inst->testAppState = TA_TXE_WAIT;
+					 inst->nextState = TA_TXPOLL_WAIT_SEND; // send next poll
+					 }
+					 break; //RTLS_DEMO_MSG_ANCH_TOFR*/
 
 				case RTLS_DEMO_MSG_TAG_FINAL: {
 					uint64 tRxT, tTxT, aRxT, aTxT;
@@ -1400,7 +1606,8 @@ int testapprun_s(instance_data_t *inst, int message) {
 					} else {
 						//only enable receiver when not using double buffering
 						if (inst->doublebufferon == 0) {
-							inst->testAppState = TA_RXE_WAIT; // wait for next frame
+							inst->testAppState = TA_TXCALL_WAIT_SEND; // wait for next frame //2015.01.26 JSH
+							//inst->testAppState = TA_RXE_WAIT ;              // wait for next frame
 						}
 						dwt_setrxaftertxdelay(0);
 					}
@@ -1447,7 +1654,6 @@ int testapprun_s(instance_data_t *inst, int message) {
 
 		}
 			break; //end of DWT_SIG_RX_OKAY
-
 
 		case DWT_SIG_RX_TIMEOUT:
 			instance_getevent(17); //get and clear this event
@@ -1738,10 +1944,5 @@ void instance_readaccumulatordata(void) {
 	len = len*4+1;// extra 1 as first byte is dummy due to internal memory access delay
 
 	dwt_readaccdata((uint8*)&(instance_data[instance].buff.accumData->dummy), len, 0);
-#endif  // support_sounding}#endif/* ==========================================================	Notes:	Previously code	handled multiple	instances ina single	console applicationNow havechanged ittodo a single
-instance only
-. With minimal code changes...(i.e. kept [instance] index but it is always 0.
-
-		Windows application should call instance_init() once and then in the "main loop" call instance_run().
-
-		*/
+#endif  // support_sounding}#endif/* ==========================================================	Notes:	Previously code	handled multiple	instances ina single	console applicationNow havechanged ittodo a singleinstance only. With minimal code changes...(i.e. kept [instance] index but it is always 0.Windows application should call instance_init() once and then in the "main loop" call instance_run().
+*/

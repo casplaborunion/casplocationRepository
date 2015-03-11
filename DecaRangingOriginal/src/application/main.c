@@ -33,7 +33,7 @@ int instance_tagaddr = 0; //0 = 0xDECA010000000001; 1 = 0xDECA010000000002; 2 = 
  * tag address index. initial value is 0.
  * 2015.01.17 JB
  */
-int instance_anchaddr = 0; //0 = 0xDECA020000000001; 1 = 0xDECA020000000002; 2 = 0xDECA020000000003
+int instance_anchaddr = 3; //0 = 0xDECA020000000001; 1 = 0xDECA020000000002; 2 = 0xDECA020000000003; 3 = 0xDECA020000000004 (MASTER ANCHOR)
 int dr_mode = 0;
 //if instance_mode = TAG_TDOA then the device cannot be selected as anchor
 int instance_mode = ANCHOR;
@@ -158,7 +158,7 @@ uint64 tagAddressList[5] = { 0xDECA010000000001,         //  tag1
 uint64 anchorAddressList[ANCHOR_LIST_SIZE] = { 0xDECA020000000001, // First anchor
 		0xDECA020000000002,       // Second anchor
 		0xDECA020000000003,       // Third anchor
-		0xDECA020000000004         // Fourth anchor
+		0xDECA020000000004         // Master anchor
 		};
 
 //ToF Report Forwarding Address
@@ -181,7 +181,7 @@ void addressconfigure(void) {
 	ipc.tagAddress = tagAddressList[instance_tagaddr];
 	ipc.tagAddressList = tagAddressList;
 
-	ipc.sendReport = 1;  //1 => anchor sends TOF report to tag
+	ipc.sendReport = 0;  //1 => anchor sends TOF report to tag
 	//ipc.sendReport = 2 ;  //2 => anchor sends TOF report to listener
 
 	instancesetaddresses(&ipc);

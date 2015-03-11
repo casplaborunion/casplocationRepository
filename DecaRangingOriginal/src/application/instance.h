@@ -89,7 +89,10 @@ extern "C" {
 #define RTLS_DEMO_MSG_ANCH_RESP             (0x10)          // Anchor response to poll
 #define RTLS_DEMO_MSG_TAG_FINAL             (0x29)          // Tag final massage back to Anchor (0x29 because of 5 byte timestamps needed for PC app)
 #define RTLS_DEMO_MSG_ANCH_TOFR             (0x2A)          // Anchor TOF Report message
-#define RTLS_DEMO_MSG_ANCHOR_CALL           (0x12)          // Tag call message
+#define RTLS_DEMO_MSG_ANCHOR_CALL           (0x12)          // Anchor call message to Tag
+#define RTLS_DEMO_MSG_ANCHOR_CHECK          (0x13)          // Master Anchor check message to Tag
+#define RTLS_DEMO_MSG_TAG_REPLY             (0x14)          // Tag reply message to Master anchor
+
 
 //#define RTLS_DEMO_MSG_RNG_INITF              (0x60)          // Ranging initiation message
 #define RTLS_DEMO_MSG_TAG_POLLF              (0x61)          // Tag poll message
@@ -146,6 +149,14 @@ extern "C" {
 
 #define ANCHOR_LIST_SIZE			(4)
 #define TAG_LIST_SIZE				(1)	//anchor will range with 1st Tag it gets blink from
+
+#define CHECK_MAX					5			//2015.03.05 JSH; # of tags to check in 1st session
+#define CALL_MAX					(CHECK_MAX)	//2015.03.05 JSH; # of tags to check in 2nd session ~ (max)rd session
+												//This will be subtracted by the # of non-check-replied tags
+#define SESSION_MAX					10			//2015.03.05 JSH; # of session until new check
+
+int CHECK_FLAG[CHECK_MAX];					//2015.03.05 JSH; the tags replied to check will be set 1
+//int SESSION_FLAG[SESSION_MAX]={0};		//2015.03.05 JSH; set 1 after every session
 
 #define SEND_TOF_REPORT				(1)	//use this to set sendTOFR2Tag parameter if the anchor sends the report back to the tag
 #define NO_TOF_REPORT				(0)
@@ -204,7 +215,9 @@ extern "C" {
 
 
 //response delay time (Tag or Anchor when sending Final/Response messages respectively)
-#define FIXED_REPLY_DELAY       			30
+#define FIXED_REPLY_DELAY       			20
+#define CALL_DELAY			       			(10*FIXED_REPLY_DELAY)	//2015.03.05 JSH; time between call to call
+#define CHECK_DELAY			       			(10*FIXED_REPLY_DELAY)	//2015.03.05 JSH; time between check to check
 #define FIXED_LONG_BLINK_RESPONSE_DELAY       (5*FIXED_REPLY_DELAY) //NOTE: this should be a multiple of FIXED_LONG_REPLY_DELAY see DELAY_MULTIPLE below
 #define DELAY_MULTIPLE				(FIXED_LONG_BLINK_RESPONSE_DELAY/FIXED_LONG_REPLY_DELAY - 1)
 
@@ -233,7 +246,14 @@ typedef enum inst_states
     TA_TXRANGINGINIT_WAIT_SEND,  //11
 
     TA_TXCALL_WAIT_SEND,        //12	// 2015.01.17 JB
-    TA_TX_CALL_WAIT_CONF        //13	// 2015.01.17 JB
+    TA_TX_CALL_WAIT_CONF,       //13	// 2015.01.17 JB
+	TA_CALL_WAIT,               //14	// 2015.01.17 JB
+	TA_CALL_WAIT_DATA,          //15	// 2015.01.17 JB
+
+	TA_TXREPLY_WAIT_SEND,		//16	// 2015.03.05 JSH
+	TA_TX_REPLY_WAIT_CONF,		//17	// 2015.03.05 JSH
+	TA_TXCHECK_WAIT_SEND,		//18	// 2015.03.05 JSH
+	TA_TX_CHECK_WAIT_CONF		//19	// 2015.03.05 JSH
 
 } INST_STATES;
 
@@ -556,11 +576,14 @@ typedef struct
     uint8 tagListLen ;
     uint8 anchorListIndex ;
     uint8 tagListIndex ;
+    uint8 checkListIndex;		//2015.03.05 JSH; checkListIndex for CHECK_FLAG
     /*
      * Anchor 1 have tag list index for calling tag
      */
 	uint8 tagList[TAG_LIST_SIZE][8];
 
+	uint8 checkIndex;		//2015.03.05 JSH; checkIndex for CHECK_FLAG
+	uint8 sessionIndex;		//2015.03.05 JSH;
 
 	//event queue - used to store DW1000 events as they are processed by the dw_isr/callback functions
     event_data_t dwevent[MAX_EVENT_NUMBER]; //this holds any TX/RX events and associated message data

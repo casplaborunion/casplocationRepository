@@ -631,7 +631,30 @@ void inst_processrxtimeout(instance_data_t *inst)
 		else //finished sending reports - wait for next poll message (can also get here if no ACK to a Ranging Init message, just wait for a Poll or next Blink)
 		{
 			//only enable receiver when not using double buffering
-			inst->testAppState = TA_RXE_WAIT ;              // wait for next frame
+			//inst->testAppState = TA_RXE_WAIT ;              // wait for next frame
+			Sleep(CALL_DELAY);							//2015.03.05 JSH call delay control
+			if (inst->nextState == TA_TX_CHECK_WAIT_CONF) {
+				if (inst->checkIndex < CHECK_MAX) {
+					inst->testAppState = TA_TXCHECK_WAIT_SEND;
+					inst->nextState = TA_TX_CHECK_WAIT_CONF;
+				}
+				if (inst->checkIndex == CHECK_MAX) {
+					inst->checkIndex = 0;
+					inst->testAppState = TA_TXCALL_WAIT_SEND;
+				}
+			}
+			if (inst->nextState != TA_TX_CHECK_WAIT_CONF) {
+				if (inst->sessionIndex < (SESSION_MAX - 1)) {
+					inst->testAppState = TA_TXCALL_WAIT_SEND;
+				}
+				if (inst->sessionIndex == (SESSION_MAX - 1)) {
+					inst->sessionIndex = 0;
+					inst->testAppState = TA_TXCHECK_WAIT_SEND;//
+					inst->nextState = TA_TX_CHECK_WAIT_CONF;	//
+					//inst->testAppState = TA_INIT;				//2015.03.11
+					//inst->nextState = TA_TXCHECK_WAIT_SEND;	//2015.03.11
+				}
+			}					//2015.03.05 JSH
 			dwt_setrxtimeout(0);
             inst->ackexpected = 0 ; //timeout... so no acks expected anymore
 		}
